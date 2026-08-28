@@ -256,7 +256,7 @@ function SponsorCta({ year }: { year: Year }) {
         >
             <Flex flexDirection="column" gap="1" alignItems="center">
                 <styled.p fontSize={{ base: 'lg', md: 'xl' }} fontWeight="semibold" color="text.primary">
-                    {year} sponsors not announced yet
+                    We&apos;re still accepting sponsors for {year}
                 </styled.p>
                 <styled.p fontSize={{ base: 'sm', md: 'md' }} color="text.secondary" maxWidth="[60ch]">
                     Want your logo here? {conferenceManifest.public.name} runs on the generosity of our sponsors —
