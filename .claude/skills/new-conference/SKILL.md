@@ -280,6 +280,23 @@ core/conference-stub/** merge=ours
 core/nx.json merge=ours
 ```
 
+**Then configure the `ours` merge driver — the `.gitattributes` above does
+nothing without it:**
+
+```bash
+git config merge.ours.driver true
+```
+
+`ours` is *not* one of git's built-in low-level merge drivers (only `text`,
+`binary` and `union` are). If `merge.ours.driver` is unset, git silently
+ignores the `merge=ours` attribute and falls back to a normal three-way
+merge, so the stub and `core/nx.json` conflict on every pull anyway — the
+failure is invisible until the first `/pull-upstream` that touches them.
+
+This lives in `.git/config`, so it is **not committed**. Every fresh clone of
+the fork needs it again — call it out in the fork's `CLAUDE.md` setup steps.
+Verify with `git config --get merge.ours.driver` (expect `true`).
+
 **`.nxignore`**:
 ```
 # conference-stub is the reference conference shipped with ddd-core for its
