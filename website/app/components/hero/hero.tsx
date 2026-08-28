@@ -28,7 +28,7 @@ export function Hero({
 }) {
     return (
         <Box overflowX="hidden" position="relative">
-            <HomepageHeroPanel conferenceDate={conferenceDate} />
+            <HomepageHeroPanel conferenceDate={conferenceDate} venue={conferenceState.conference.venue} />
             <Box
                 position="relative"
                 zIndex="docked"
