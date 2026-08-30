@@ -59,7 +59,7 @@ export default function Sponsors() {
                     <p>{cancelledMessage}</p>
                 </Box>
                 <SponsorSection sponsors={sponsors} year={year} />
-                <ConferenceBrowser conferences={conferences} />
+                <ConferenceBrowser conferences={conferences} currentYear={year} />
             </Box>
         </PageLayout>
     ) : !sponsors || Object.keys(sponsors).length === 0 ? (
@@ -73,7 +73,7 @@ export default function Sponsors() {
                 </styled.p>
             </Box>
             {stillAcceptingSponsors ? <BecomeSponsorCta year={year} /> : null}
-            <ConferenceBrowser conferences={conferences} />
+            <ConferenceBrowser conferences={conferences} currentYear={year} />
         </PageLayout>
     ) : (
         <PageLayout minHeight="100vh">
@@ -94,7 +94,7 @@ export default function Sponsors() {
                     <SponsorSection sponsors={sponsors} year={year} />
                 </Box>
 
-                <ConferenceBrowser conferences={conferences} />
+                <ConferenceBrowser conferences={conferences} currentYear={year} />
             </Box>
         </PageLayout>
     )
@@ -140,14 +140,19 @@ function BecomeSponsorCta({ year }: { year: Year }) {
     )
 }
 
-function ConferenceBrowser({ conferences }: { conferences: { year: Year }[] }) {
+function ConferenceBrowser({ conferences, currentYear }: { conferences: { year: Year }[]; currentYear: Year }) {
+    // "Previous" means conferences earlier than the one being viewed. This drops
+    // the current/upcoming year (which has no agenda to link to yet) and any
+    // future years. If there's no history, don't render the section at all.
+    const previous = conferences.filter((conf) => parseInt(conf.year) < parseInt(currentYear))
+    if (previous.length === 0) return null
     return (
         <styled.div padding="4" color="text.primary" textAlign="center">
             <styled.h2 fontSize="xl" marginBottom="2" id="previous-years">
                 View Previous Conferences
             </styled.h2>
             <styled.div display="flex" flexWrap="wrap" gap="4" justifyContent="center">
-                {conferences.map((conf) => (
+                {previous.map((conf) => (
                     <styled.a key={conf.year} href={`/sponsors/${conf.year}`} color="text.highlight">
                         <styled.span fontSize="lg">{conf.year}</styled.span>
                     </styled.a>
