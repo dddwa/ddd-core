@@ -53,6 +53,18 @@ If `git log` is empty, the fork is already up to date — print that and exit.
 
 ### 4. Run the subtree pull
 
+First check the `ours` merge driver is configured:
+
+```bash
+git config --get merge.ours.driver
+```
+
+If that prints nothing, run `git config merge.ours.driver true` before
+pulling. `ours` is *not* a built-in low-level merge driver, so without it the
+`merge=ours` rules in `.gitattributes` are silently ignored and
+`core/conference-stub/**` and `core/nx.json` conflict anyway. The setting
+lives in `.git/config` and isn't committed, so a fresh clone always needs it.
+
 ```bash
 git subtree pull --prefix=core ddd-core main --squash
 ```
@@ -67,7 +79,7 @@ git status --short | grep '^UU\|^AA\|^DD' || echo "No conflicts"
 
 For each conflict:
 
-- **Inside `core/conference-stub/`**: the `.gitattributes` `merge=ours` rule should auto-resolve these. If one slips through, take ours (the fork's empty/unchanged version). The stub is irrelevant in a fork.
+- **Inside `core/conference-stub/`, or `core/nx.json`**: the `.gitattributes` `merge=ours` rule auto-resolves these *provided `merge.ours.driver` is set* (see step 4). If one slips through, take ours — the fork's unchanged version for the stub, and the deletion for `nx.json`. The stub is irrelevant in a fork.
 - **Elsewhere inside `core/`**: this means the fork has edited core directly. Show the conflicting paths to the user with a clear explanation:
   > These files are inside `core/` but the fork has local edits to them.
   > That's the antipattern this layout is meant to prevent. The right fix is
