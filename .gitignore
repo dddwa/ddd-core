@@ -85,11 +85,6 @@ test-results/
 playwright-report/
 blob-report/
 
-# Visual regression baselines are per-conference: a screenshot of DevConf
-# Example says nothing about a fork's own site. Core ships the harness only,
-# so these are ignored here. A FORK REMOVES THIS LINE and commits its own —
-# they are the whole point of the suite there.
-website/e2e/__screenshots__/
 
 qa
 

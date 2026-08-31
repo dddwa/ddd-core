@@ -71,11 +71,10 @@ export const FIXTURE_YEAR = '2025'
 export const FIXTURE_TALK_ID = '1240238'
 
 /**
- * A blog slug from the active conference's committed content. Fork-owned, so
- * a fork points this at one of its own posts when it takes over the suite —
- * along with the baselines in `__screenshots__/`, which are deliberately not
- * shipped by core (a screenshot of DevConf Example proves nothing about DDD
- * Perth, and vice versa).
+ * A blog slug from the active conference's committed content — conference-stub's
+ * own post here. A fork repoints this at one of its own, and regenerates the
+ * baselines in `__screenshots__/` to match: they capture whichever conference
+ * the repo renders.
  */
 export const FIXTURE_BLOG_SLUG = '2024-01-15-welcome-to-the-stub'
 

@@ -13,13 +13,13 @@ import { ROUTES, VISUAL_MASK_SELECTORS } from './routes'
  * real visual change is intended, and review the diff like any other code
  * change.
  *
- * **Baselines are per-conference and are NOT shipped by core.** A screenshot
- * of DevConf Example proves nothing about DDD Perth, and vice versa — the
- * content, sponsors, theme and copy all differ. Core ships the harness; each
- * conference generates its own `e2e/__screenshots__/` (gitignored here,
- * committed in a fork) and points `FIXTURE_BLOG_SLUG` in `routes.ts` at one
- * of its own posts. Running this suite with no baselines present writes them
- * rather than failing, so generate them once and commit them in the fork.
+ * **Baselines are per-conference.** The ones committed here are of
+ * conference-stub (DevConf Example) and guard core's own templates. A fork
+ * renders different content, sponsors, theme and copy, so it regenerates the
+ * whole set against its own conference — `pnpm vr --update-snapshots`, in the
+ * container, never on the host — and points `FIXTURE_BLOG_SLUG` in
+ * `routes.ts` at one of its own posts. Expect a `/pull-upstream` that changes
+ * a template to need a regeneration on both sides.
  *
  * Two things narrow what each baseline covers, both configured per-route in
  * `routes.ts`:
