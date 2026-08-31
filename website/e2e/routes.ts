@@ -70,8 +70,14 @@ export const FIXTURE_YEAR = '2025'
  */
 export const FIXTURE_TALK_ID = '1240238'
 
-/** A blog slug from committed content in this repo. */
-export const FIXTURE_BLOG_SLUG = '2023-02-14-chairperson-report-for-2022'
+/**
+ * A blog slug from the active conference's committed content. Fork-owned, so
+ * a fork points this at one of its own posts when it takes over the suite —
+ * along with the baselines in `__screenshots__/`, which are deliberately not
+ * shipped by core (a screenshot of DevConf Example proves nothing about DDD
+ * Perth, and vice versa).
+ */
+export const FIXTURE_BLOG_SLUG = '2024-01-15-welcome-to-the-stub'
 
 export const ROUTES: E2eRoute[] = [
     // `home` deliberately stays a full-page capture: it is the only route

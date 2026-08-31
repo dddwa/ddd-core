@@ -94,7 +94,9 @@ console.log(`[e2e] dev server on :${port} using conference/wrangler/e2e/e2e.json
 // both rather than assuming a layout.
 const viteBin = [
     join(websiteDir, 'node_modules', '.bin', 'vite'),
-    join(repoRoot, 'node_modules', '.bin', 'vite'),
+    // Workspace root: one level up in ddd-core standalone, two in a fork.
+    join(websiteDir, '..', 'node_modules', '.bin', 'vite'),
+    join(websiteDir, '..', '..', 'node_modules', '.bin', 'vite'),
 ].find((candidate) => existsSync(candidate))
 
 if (!viteBin) {
