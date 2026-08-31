@@ -17,6 +17,16 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     const year =
         params.year && /\d{4}/.test(params.year) ? (params.year as Year) : context.conferenceState.conference.year
 
+    // Opt-in (manifest feature): forks that don't import historical sponsors can
+    // send past-year sponsor pages to that year's agenda instead of an empty
+    // sponsors page. The current/upcoming year is unaffected.
+    if (
+        conferenceManifest.public.features?.redirectPastSponsorsToAgenda &&
+        year !== context.conferenceState.conference.year
+    ) {
+        throw redirect($path('/agenda/:year?', { year }))
+    }
+
     const yearConfig = getYearConfig(year, context.config)
     const sponsors = yearConfig.kind === 'conference' ? yearConfig.sponsors : {}
 

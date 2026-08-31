@@ -49,6 +49,21 @@ export interface ConferenceFeatures {
      * for small lineups.
      */
     sponsorOverview?: boolean
+
+    /**
+     * Redirect `/sponsors/<year>` to `/agenda/<year>` for every year except the
+     * current/upcoming one. For forks that don't import historical sponsors,
+     * past-year sponsor pages are empty, so send visitors to that year's agenda
+     * instead. The current year's sponsors page is unaffected.
+     */
+    redirectPastSponsorsToAgenda?: boolean
+
+    /**
+     * Hide the homepage "Workshops" section. The section ships on by default
+     * (it renders a "Coming soon!" placeholder); a fork that isn't running
+     * workshops in a given year can set this to drop the section entirely.
+     */
+    hideWorkshops?: boolean
 }
 
 /**
@@ -60,6 +75,7 @@ export interface Socials {
     Facebook?: string
     Instagram?: string
     Linkedin?: string
+    Bluesky?: string
     GitHub?: string
     Youtube?: string
     Flickr?: string

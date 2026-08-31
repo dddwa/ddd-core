@@ -71,7 +71,7 @@ export function Hero({
                         </Flex>
 
                         <ImportantDates currentDate={currentDate} importantDates={importantDates} />
-                        <Workshops />
+                        {!conferenceManifest.public.features?.hideWorkshops && <Workshops />}
                         <HeroSponsorStrip sponsors={sponsors} currentYear={currentYear} />
                     </Flex>
                 </HeaderContainer>
