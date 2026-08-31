@@ -336,6 +336,10 @@ core/package.json
 - Dependency note: the fork-root `package.json` mirrors ddd-core's build-tooling devDeps; if a `/pull-upstream` changes `core/package.json`'s tooling, mirror it up
 - Set up Sessionize, Tito (or chosen ticketing), Cloudflare account, domain DNS
 - Subscribe to ddd-core updates: run `/pull-upstream` periodically
+- **Never squash-merge a `/pull-upstream` PR** — it destroys the
+  `git-subtree-split` trailer that tells the next pull where it left off, after
+  which every pull replays the whole range from the original subtree add. Use a
+  merge commit or rebase. Worth stating in the fork's own `CLAUDE.md`.
 
 ### 8. Initial commit + report
 
