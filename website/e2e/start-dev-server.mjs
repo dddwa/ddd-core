@@ -31,6 +31,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startSessionizeFixtureServer, SESSIONIZE_FIXTURE_PORT } from './fixtures/sessionize-server.ts'
+import { FIXTURE_YEAR } from './routes.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const websiteDir = join(here, '..')
@@ -76,8 +77,15 @@ writeFileSync(
         // its "not configured" state. These two do different jobs; both are
         // needed. The value only has to be a Sessionize URL for the
         // interceptor to catch it.
+        // FIXTURE_YEAR too: a conference whose past years hardcode their
+        // Sessionize URLs is covered by interception alone, but one that
+        // leaves them undefined (conference-stub does) renders "no agenda
+        // yet" without an override, and the agenda baselines capture an
+        // empty page.
         `SESSIONIZE_2026_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
         `SESSIONIZE_2026_ALL_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
+        `SESSIONIZE_${FIXTURE_YEAR}_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
+        `SESSIONIZE_${FIXTURE_YEAR}_ALL_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
         '',
     ].join('\n'),
 )
