@@ -69,6 +69,9 @@ function wrapMdxComponent(
         h2: ({ ref, ...props }) => <styled.h2 fontSize="2xl" {...props} />,
         h3: ({ ref, ...props }) => <styled.h3 fontSize="xl" {...props} />,
         ul: ({ ref, ...props }) => <styled.ul {...props} listStyle="inside" />,
+        img: ({ ref, ...props }) => (
+            <styled.img {...props} display="block" width="full" height="auto" rounded="lg" shadow="sm" my="6" loading="lazy" />
+        ),
         Hero,
         Stats,
         Stat,
