@@ -15,7 +15,7 @@
  * making them optional + having a sensible default in core.
  */
 
-import type { ConferenceConfig } from './types'
+import type { ConferenceConfig, MinorSponsorTier } from './types'
 
 /**
  * Public, client-safe conference identity. Anything in here may render in
@@ -36,6 +36,16 @@ export interface ConferenceConfigPublic {
      * until they want a feature on.
      */
     features?: ConferenceFeatures
+    /**
+     * Rename sponsor tier headings for this conference. Any tier left out
+     * keeps its core default. Regional wording belongs here rather than in
+     * components — DDD Adelaide renders `community` as "SA Sponsors", where
+     * another fork would want "WA Sponsors" or plain "Community".
+     *
+     * Only takes effect for tiers rendered under their own heading, i.e.
+     * with `features.separateOtherSponsorTiers` on.
+     */
+    sponsorTierLabels?: Partial<Record<MinorSponsorTier, string>>
 }
 
 /**
@@ -64,6 +74,15 @@ export interface ConferenceFeatures {
      * workshops in a given year can set this to drop the section entirely.
      */
     hideWorkshops?: boolean
+
+    /**
+     * Give each minor sponsor tier (community, coffee cart, quiet room,
+     * venue, prize, keynotes) its own heading instead of pooling them under
+     * a single "Other Sponsors" block. Worth turning on once a fork has
+     * enough of them that the pooled strip stops communicating who paid for
+     * what. Pair with `public.sponsorTierLabels` to control the wording.
+     */
+    separateOtherSponsorTiers?: boolean
 }
 
 /**
