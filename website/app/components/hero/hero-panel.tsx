@@ -57,7 +57,11 @@ export function HomepageHeroPanel({
         >
             <HeaderContainer>
                 {conferenceDate ? (
-                    <styled.h2
+                    // A kicker/byline above the h1, not a section heading — kept as
+                    // a <p> so the page's heading order starts cleanly at h1 below
+                    // (a screen-reader-visible h2 here, before the h1, previously
+                    // broke heading hierarchy for AT users navigating by heading).
+                    <styled.p
                         color="text.highlight"
                         fontSize={{ base: 'md', md: 'xl' }}
                         fontWeight={{ base: 'medium', md: 'semibold' }}
@@ -75,7 +79,7 @@ export function HomepageHeroPanel({
                             })}
                         </styled.span>
                         {venue ? <styled.span>{venue.name}</styled.span> : null}
-                    </styled.h2>
+                    </styled.p>
                 ) : null}
                 <styled.h1
                     fontFamily="display"

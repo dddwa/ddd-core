@@ -4,6 +4,7 @@ import type { ComponentType } from 'react'
 import { use } from 'react'
 import bundles from 'virtual:mdx-bundles'
 import type { Sponsor, Year } from './conference-state-client-safe'
+import { MdxImage } from '~/components/mdx-image'
 import { MdxLink } from '~/components/mdx-link'
 import {
     Bullet,
@@ -69,9 +70,8 @@ function wrapMdxComponent(
         h2: ({ ref, ...props }) => <styled.h2 fontSize="2xl" {...props} />,
         h3: ({ ref, ...props }) => <styled.h3 fontSize="xl" {...props} />,
         ul: ({ ref, ...props }) => <styled.ul {...props} listStyle="inside" />,
-        img: ({ ref, ...props }) => (
-            <styled.img {...props} display="block" width="full" height="auto" rounded="lg" shadow="sm" my="6" loading="lazy" />
-        ),
+        img: MdxImage,
+        Image: MdxImage,
         Hero,
         Stats,
         Stat,

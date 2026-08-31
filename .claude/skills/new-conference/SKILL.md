@@ -249,7 +249,7 @@ Then adjust the copies and generate the genuinely-new files:
 - `.gitattributes` — keeps stub + nx.json out of subtree pulls (below)
 - `.nxignore` — excludes the embedded stub + core's package.json from Nx project discovery (below)
 - `.nvmrc` — `22` (the build requires Node ≥22 — see [Prerequisites](#prerequisites--known-issues))
-- `FORK_GUIDE.md` — manual checklist (Cloudflare account, D1 IDs, replace placeholder logos in `core/website/public/images/sponsors/`, real dates, etc.)
+- `FORK_GUIDE.md` — manual checklist (Cloudflare account, D1 IDs, replace placeholder logos in `conference/public/images/sponsors/`, real dates, etc.)
 
 Contents for the generated files (substitute `{{SLUG}}`, `{{NAME}}`, etc.). `package.json` is copied from `core/` and renamed per the steps above — not generated from scratch.
 
@@ -329,7 +329,8 @@ core/package.json
 - Use **Node ≥ 22** (`.nvmrc`); `pnpm i`, then `pnpm nx d1-migrate-local website` and `pnpm nx build website`
 - Replace placeholder D1 database IDs in `conference/wrangler/{staging,production}.jsonc` after creating real Cloudflare D1 databases
 - **Header logo** still shows the "DDD PERTH" wordmark (hardcoded vector in `core/website/app/images/svg/logo.svg`) — supply a fork logo / upstream a fork-overridable logo to ddd-core
-- Replace placeholder sponsor logos under `core/website/public/images/sponsors/devconf-*` with your own
+- Replace the stub's placeholder sponsor logos in `conference/public/images/sponsors/` (devconf-*) with your own, prefixed with your slug
+- Replace the placeholder `conference/public/favicon.svg` and `conference/public/images/logo.png` — core references both by URL (favicon link, og:image meta)
 - Confirm the first year's dates, Sessionize URL/endpoint IDs, and Tito account/event in `conference/config/years/${FIRST_YEAR}.ts`
 - Theme refinement: the brand sed only moved the 3 base tokens — tune the derived shades and the light-theme accent in the theme files
 - Update `conference/content/pages/team.mdx` (committee) and `contact.mdx` (real contact details); finalise `_acknowledgement.mdx` with the committee if you enabled it

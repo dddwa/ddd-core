@@ -1,3 +1,4 @@
+import { conferenceManifest } from '@conference/manifest'
 import { DateTime } from 'luxon'
 import { Fragment } from 'react'
 import { data, redirect, useLoaderData } from 'react-router'
@@ -5,15 +6,15 @@ import { $path } from 'safe-routes'
 import type { TypeOf, z } from 'zod'
 import { AppLink } from '~/components/app-link'
 import { SponsorOverview, SponsorSection } from '~/components/page-components/SponsorSection'
-import { conferenceManifest } from '@conference/manifest'
+import { PageLayout } from '~/components/page-layout'
 import type { Year, YearSponsors } from '~/lib/conference-state-client-safe'
 import { getYearConfig } from '~/lib/get-year-config.server'
 import { CACHE_CONTROL } from '~/lib/http.server'
 import type { gridRoomSchema, gridSmartSchema, roomSchema, timeSlotSchema } from '~/lib/sessionize.server'
 import { formatDate, getScheduleGrid } from '~/lib/sessionize.server'
 import { slugify } from '~/lib/slugify'
+import { getConferenceState, getConfig, getDateTimeProvider } from '~/remix-app-load-context'
 import { Box, Flex, styled } from '~/styled-system/jsx'
-import { PageLayout } from '~/components/page-layout'
 import type { Route } from './+types/_layout.agenda.($year)'
 
 export async function loader({ params, context }: Route.LoaderArgs) {
@@ -22,16 +23,17 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     }
 
     const year =
-        params.year && /\d{4}/.test(params.year) ? (params.year as Year) : context.conferenceState.conference.year
+        params.year && /\d{4}/.test(params.year) ? (params.year as Year) : getConferenceState(context).conference.year
 
-    const yearConfig = getYearConfig(year, context.config)
+    const yearConfig = getYearConfig(year, getConfig(context))
     const conferenceYearConfig = yearConfig.kind === 'conference' ? yearConfig : undefined
 
-    const now = context.dateTimeProvider.nowDate()
+    const now = getDateTimeProvider(context).nowDate()
     const agendaPublished = conferenceYearConfig
         ? (conferenceYearConfig.agendaPublishedDateTime
               ? now >= conferenceYearConfig.agendaPublishedDateTime
-              : false) || (!!conferenceYearConfig.conferenceDate && now >= conferenceYearConfig.conferenceDate)
+              : false) ||
+          (!!conferenceYearConfig.conferenceDate && now >= conferenceYearConfig.conferenceDate)
         : false
 
     const schedules: TypeOf<typeof gridSmartSchema> =
@@ -92,8 +94,20 @@ export default function Agenda() {
 
     const isLatestConference = conferences.every((c) => c.year <= year)
 
+    // The visible page title lives in <title> (via `meta`); this page had no
+    // <h1> at all, which breaks heading-based navigation for screen reader
+    // users. `srOnly` keeps it out of the (already-established) visual design
+    // while giving AT users a real entry point that matches the page's
+    // purpose.
+    const pageHeading = (
+        <styled.h1 srOnly>
+            {conferenceManifest.public.name} {year} Agenda
+        </styled.h1>
+    )
+
     return cancelledMessage ? (
         <PageLayout>
+            {pageHeading}
             <Box color="text.primary" textAlign="center" fontSize="3xl" mt="10">
                 <p>
                     {conferenceManifest.public.name} {year} {isLatestConference ? 'is cancelled.' : 'was cancelled.'}
@@ -108,6 +122,7 @@ export default function Agenda() {
         </PageLayout>
     ) : !schedule ? (
         <PageLayout>
+            {pageHeading}
             <Box color="text.primary" textAlign="center" fontSize="3xl" mt="10">
                 <p>
                     {conferenceManifest.public.name} {year} agenda has not been{' '}
@@ -121,10 +136,9 @@ export default function Agenda() {
         </PageLayout>
     ) : (
         <PageLayout>
+            {pageHeading}
             <Box width="full" overflowX={{ base: 'auto', xl: 'visible' }}>
-                {conferenceManifest.public.features?.sponsorOverview ? (
-                    <SponsorOverview sponsors={sponsors} />
-                ) : null}
+                {conferenceManifest.public.features?.sponsorOverview ? <SponsorOverview sponsors={sponsors} /> : null}
                 <Box
                     color="text.secondary"
                     p="1"
@@ -185,11 +199,17 @@ export default function Agenda() {
                                     gridColumn="times"
                                     style={{ gridRow: `time-${timeSlotSimple}` }}
                                     mt="2"
-                                    xl={{ mt: "0" }}
+                                    xl={{ mt: '0' }}
                                     fontSize={{ base: 'sm', md: 'md' }}
                                     fontWeight="semibold"
                                     color="text.secondary"
-                                    role="rowheader"
+                                    // No `role="rowheader"` here: the schedule is a flat CSS
+                                    // grid, not a table/grid structure — the roles have no
+                                    // `role="row"`/`role="grid"` ancestors, which axe flags as
+                                    // a critical `aria-required-parent` violation. Orphaned
+                                    // table roles tell a screen reader it's in a table and
+                                    // then give it no row/column context to navigate, which is
+                                    // worse than the plain heading this already is.
                                     aria-label={`Time slot starting at ${startTime12}`}
                                 >
                                     {startTime12}
@@ -242,7 +262,10 @@ function RoomTitle({ room, sponsors }: { room: z.infer<typeof gridRoomSchema>; s
         <Flex
             key={room.id}
             style={{ '--room-column': `room-${room.id}` } as React.CSSProperties}
-            role="columnheader"
+            // See the note on the time-slot heading above: `role="columnheader"`
+            // without a `role="row"`/`role="grid"` ancestor is an orphaned table
+            // role (critical `aria-required-parent`). The aria-label is kept —
+            // it still usefully names the room and its sponsor.
             aria-label={`${room.name}${roomSponsor ? `, sponsored by ${roomSponsor.name}` : ''}`}
             justifyContent="center"
             alignItems="center"
@@ -259,8 +282,8 @@ function RoomTitle({ room, sponsors }: { room: z.infer<typeof gridRoomSchema>; s
             xl={{
                 display: 'block',
                 position: 'sticky',
-                top: "4",
-                zIndex: "modal",
+                top: '4',
+                zIndex: 'modal',
             }}
         >
             {room.name}
@@ -396,7 +419,7 @@ function RoomTimeSlot({
         <styled.div
             key={room.id}
             marginBottom="0"
-            xl={{ marginBottom: "1" }}
+            xl={{ marginBottom: '1' }}
             style={{
                 gridRow: `time-${timeSlotSimple} / time-${earliestEnd}`,
                 gridColumn: gridColumn,
@@ -410,7 +433,7 @@ function RoomTimeSlot({
                 padding="2"
                 mt="2"
                 xl={{
-                    mt: "0",
+                    mt: '0',
                 }}
             >
                 <styled.h3
@@ -464,7 +487,14 @@ function RoomTimeSlot({
                     {startTime12} - {endTime12}
                 </styled.span>
                 {fullSession?.isServiceSession ? null : (
-                    <Flex alignItems="center" gap="2" color="text.secondary" textOverflow="ellipsis" textWrap="nowrap" fontSize={{ base: 'xs', xl: 'sm' }}>
+                    <Flex
+                        alignItems="center"
+                        gap="2"
+                        color="text.secondary"
+                        textOverflow="ellipsis"
+                        textWrap="nowrap"
+                        fontSize={{ base: 'xs', xl: 'sm' }}
+                    >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 16 16"
