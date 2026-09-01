@@ -56,6 +56,15 @@ const e2eWranglerDir = [
     join(websiteDir, '..', '..', 'conference', 'wrangler', 'e2e'),
     join(websiteDir, '..', 'conference-stub', 'wrangler', 'e2e'),
 ].find((dir) => existsSync(join(dir, '..')))
+
+if (!e2eWranglerDir) {
+    console.error(
+        '[e2e] No wrangler directory found. Expected ../../conference/wrangler (fork) or ' +
+            '../conference-stub/wrangler (ddd-core standalone), relative to the website project.',
+    )
+    process.exit(1)
+}
+
 const e2eDevVarsPath = join(e2eWranglerDir, '.dev.vars')
 
 /** Own port, so we can never collide with (or attach to) `pnpm start`. */
@@ -95,7 +104,7 @@ writeFileSync(
 )
 
 console.log(`[e2e] Sessionize fixtures on ${fixtureServer.url} (port ${SESSIONIZE_FIXTURE_PORT})`)
-console.log(`[e2e] dev server on :${port} using conference/wrangler/e2e/e2e.jsonc`)
+console.log(`[e2e] dev server on :${port} using ${join(e2eWranglerDir, 'e2e.jsonc')}`)
 
 // Invoke Vite's binary directly rather than via `pnpm vite`. Playwright's
 // `webServer` and the visual-regression script both spawn this without a
