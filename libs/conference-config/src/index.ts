@@ -31,9 +31,17 @@ export type {
     DeploymentConfig,
     HomepageContentSlots,
     MobileApp,
+    MeetTheExpertsConfig,
+    MeetTheExpertsSlotConfig,
     NavConfig,
     NavItem,
     Socials,
+    SpeakerDinnerConfig,
+    SpeakerPortalChecklistConfig,
+    SpeakerPortalConfig,
+    SpeakerTrainingSessionConfig,
+    SponsorPortalConfig,
+    SponsorPortalJiraConfig,
     ThemeRefs,
 } from './manifest'
 
