@@ -31,7 +31,16 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startSessionizeFixtureServer, SESSIONIZE_FIXTURE_PORT } from './fixtures/sessionize-server.ts'
-import { FIXTURE_YEAR } from './routes.ts'
+
+/**
+ * Years given fixture Sessionize endpoints. Interception is host-based and
+ * already covers every year, but the app checks its *configured* endpoint
+ * before fetching — so a year whose config leaves the endpoint undefined
+ * renders "no agenda yet" regardless. Kept as literals rather than imported
+ * from `routes.ts`: this file runs under plain Node, which can't resolve the
+ * `@conference/*` TypeScript path aliases that module now depends on.
+ */
+const FIXTURE_ENDPOINT_YEARS = ['2025', '2026']
 
 const here = dirname(fileURLToPath(import.meta.url))
 const websiteDir = join(here, '..')
@@ -77,15 +86,10 @@ writeFileSync(
         // its "not configured" state. These two do different jobs; both are
         // needed. The value only has to be a Sessionize URL for the
         // interceptor to catch it.
-        // FIXTURE_YEAR too: a conference whose past years hardcode their
-        // Sessionize URLs is covered by interception alone, but one that
-        // leaves them undefined (conference-stub does) renders "no agenda
-        // yet" without an override, and the agenda baselines capture an
-        // empty page.
-        `SESSIONIZE_2026_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
-        `SESSIONIZE_2026_ALL_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
-        `SESSIONIZE_${FIXTURE_YEAR}_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
-        `SESSIONIZE_${FIXTURE_YEAR}_ALL_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
+        ...FIXTURE_ENDPOINT_YEARS.flatMap((year) => [
+            `SESSIONIZE_${year}_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
+            `SESSIONIZE_${year}_ALL_SESSIONS=https://sessionize.com/api/v2/e2e-fixture`,
+        ]),
         '',
     ].join('\n'),
 )

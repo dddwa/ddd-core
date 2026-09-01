@@ -124,10 +124,28 @@ export const VISUAL_MASK_SELECTORS: string[] = []
  * content, and therefore can't go in the shared list above (the visual and
  * structural suites don't set cookies per route). The live voting flow has
  * its own suite, `e2e/voting.spec.ts`.
+ *
+ * **`date` is fork-owned, like `FIXTURE_BLOG_SLUG`.** Core owns the *states*;
+ * a conference owns *when* they happen, so each date must fall inside that
+ * conference's own voting / agenda-published window. Leave it `undefined`
+ * when the conference has no such window — `conference-stub`'s current year
+ * is deliberately a "save the date" skeleton with none — and the specs skip
+ * rather than fail.
+ *
+ * Literals rather than values read from `@conference/manifest`:
+ * `start-dev-server.mjs` imports this module under plain Node, where the
+ * `@conference/*` path aliases don't resolve and a fork's year config can pull
+ * in JSON that Node's loader rejects without an import attribute.
  */
-export const DATE_DEPENDENT_ROUTES = {
+interface DateDependentRoute {
+    path: string
+    /** ISO datetime inside the relevant window, or undefined if unconfigured. */
+    date: string | undefined
+}
+
+export const DATE_DEPENDENT_ROUTES: Record<'agendaPublished' | 'votingOpen', DateDependentRoute> = {
     /** The current conference's agenda, once published. Uses fixture data. */
-    agendaPublished: { path: '/agenda/2026', date: '2026-09-01T10:00:00' },
+    agendaPublished: { path: '/agenda/2026', date: undefined },
     /** The live voting flow. Uses fixture data. */
-    votingOpen: { path: '/voting', date: '2026-07-15T10:00:00' },
-} as const
+    votingOpen: { path: '/voting', date: undefined },
+}
