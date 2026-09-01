@@ -115,13 +115,51 @@ errors and explain:
 > need new fields. Look at `core/libs/conference-config/src/manifest.ts` and
 > `core/website/themes/base.theme.ts` for the new shape.
 
+### 6b. Verify the subtree split trailer survived
+
+```bash
+git log --format=%B origin/main..HEAD | grep "git-subtree-split" | head -1
+```
+
+This must print a `git-subtree-split: <sha>` line matching the upstream commit
+just pulled. `git subtree pull --squash` writes it onto the squash commit, and
+the *next* pull scans history for the most recent one to find its starting
+point. Upstream's individual commits never exist in the fork, so this trailer
+is the only record of where the fork last synced to.
+
+Also check `main`, which is where the damage accumulates:
+
+```bash
+git log --format=%B origin/main | grep -c "git-subtree-split"
+```
+
+Expect one occurrence per pull that has landed, plus one for the original
+subtree add. Fewer means a pull was squash-merged and `main` has lost its sync
+point — see step 7.
+
 ### 7. Report
 
 Summarise:
 - Number of upstream commits pulled
 - Whether there were conflicts (and where)
 - Whether the build passed
-- Suggested next step: `git push` to share the upstream pull with the team
+- That the `git-subtree-split` trailer is present (step 6b)
+- Suggested next step: push the branch and open a PR
+
+**If the fork reviews changes via PR, tell the user — in the report and in the
+PR description — that this PR must NOT be squash-merged.** Use "Create a merge
+commit" or "Rebase and merge".
+
+A GitHub squash merge rewrites the commit message and destroys the
+`git-subtree-split` trailer. Git then falls back to the oldest surviving one
+(usually the original subtree add) and replays that entire range on every
+subsequent pull. The replayed range grows as upstream moves on, and replaying
+already-applied changes onto a diverged tree is how spurious conflicts get
+manufactured.
+
+If it has already been squashed, the recovery is to re-run the pull on a fresh
+branch off `main` and merge *that* with a real merge commit — the pull writes a
+correct trailer.
 
 ## What this skill must NOT do
 
