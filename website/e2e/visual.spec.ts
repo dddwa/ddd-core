@@ -18,7 +18,7 @@ import { ROUTES, VISUAL_MASK_SELECTORS } from './routes'
  * renders different content, sponsors, theme and copy, so it regenerates the
  * whole set against its own conference — `pnpm vr --update-snapshots`, in the
  * container, never on the host — and points `FIXTURE_BLOG_SLUG` in
- * `routes.ts` at one of its own posts. Expect a `/pull-upstream` that changes
+ * `routes.ts` at one of its own posts. Expect a `/core-pull` that changes
  * a template to need a regeneration on both sides.
  *
  * Two things narrow what each baseline covers, both configured per-route in

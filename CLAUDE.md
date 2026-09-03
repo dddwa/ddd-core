@@ -63,12 +63,13 @@ nx graph                           # workspace dependency graph
 
 ## Working with the fork ecosystem
 
-Two Claude Code skills are bundled in `.claude/skills/`:
+Three Claude Code skills are bundled in `.claude/skills/`:
 
 - **`/new-conference`** — scaffolds a sibling fork repo, embeds this repo as a `git subtree` under `core/`, copies `/conference-stub/` as the seed for the fork's `/conference/`, runs a substitution pass.
-- **`/pull-upstream`** — used from inside a fork to pull the latest ddd-core into `core/` via `git subtree pull`.
+- **`/core-pull`** — used from inside a fork to pull the latest ddd-core into `core/` via `git subtree pull`.
+- **`/core-push`** — used from inside a fork to upstream a change made in its `core/` back here, as a curated PR. Deliberately not a `git subtree push`: the fork's visual baselines and fork-shape config must not travel up.
 
-Read each skill's `SKILL.md` before changes that affect the cross-layer contract (manifest shape, theme shape, wrangler shape, path aliases). Anything you break in the contract will break every existing fork on their next `/pull-upstream`.
+Read each skill's `SKILL.md` before changes that affect the cross-layer contract (manifest shape, theme shape, wrangler shape, path aliases). Anything you break in the contract will break every existing fork on their next `/core-pull`.
 
 ## Key application patterns
 
