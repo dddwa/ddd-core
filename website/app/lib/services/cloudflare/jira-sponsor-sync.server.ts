@@ -2,7 +2,9 @@ import { conferenceManifest } from '@conference/manifest'
 import type { JiraClient } from '../../sponsors/jira-client.server'
 import { createJiraClient, textToAdf } from '../../sponsors/jira-client.server'
 import { createStubJiraClient } from '../../sponsors/stub-jira-client.server'
-import { computeSyncPlan } from '../../sponsors/sync-plan'
+import { logisticsVisibility } from '../../sponsors/logistics'
+import { statusFlipReadiness } from '../../sponsors/progress'
+import { computeSyncPlan, planStatusWrite } from '../../sponsors/sync-plan'
 import { dueExpiryReminder } from '../../sponsors/token-expiry'
 import type { AppConfig } from '../app-config'
 import type { AssetStorage } from '../asset-storage'
@@ -46,15 +48,42 @@ export function createJiraSponsorSyncService(args: {
 
     // The stub always "writes back" (it just logs) so the full flow can be
     // walked locally; the real client is gated behind JIRA_WRITEBACK_ENABLED
-    // so staging can never tick checkboxes on real issues.
+    // so staging can never write to real issues.
     const writebackEnabled = config.jira.stub || config.jira.writebackEnabled
+
+    /**
+     * Stamps the current year onto issues that synced without a year label.
+     * The JQL picks those up deliberately (a sponsor added mid-year is never
+     * silently missed); labelling them here means every issue is labelled by
+     * the time the year is archived, so archiving stays a bulk label edit.
+     *
+     * Best-effort per issue and never throws: the sponsor data is already
+     * synced by this point, and a label that fails to stamp is picked up
+     * again by the next run — the JQL keeps matching it until it sticks.
+     */
+    async function stampMissingYearLabels(source: Awaited<ReturnType<JiraClient['searchSponsorIssues']>>) {
+        if (!portalConfig?.jira.writeYearLabel || !client || !writebackEnabled) return
+
+        const unlabelled = source.filter((s) => s.hasYearLabel === false)
+        for (const sponsor of unlabelled) {
+            try {
+                await client.addLabel(sponsor.issueKey, portalConfig.year)
+                console.log(`Sponsor sync: stamped year label ${portalConfig.year} on ${sponsor.issueKey}`)
+            } catch (error) {
+                console.error(
+                    `Sponsor sync: could not stamp year label on ${sponsor.issueKey}:`,
+                    error instanceof Error ? error.message : error,
+                )
+            }
+        }
+    }
 
     /** Snapshot of what the sponsor submitted, for the completion comment. */
     function buildCompletionComment(
         profile: Awaited<ReturnType<SponsorsStore['getProfile']>>,
         logoAttached: boolean,
     ): string {
-        const lines = ['Sponsor portal: profile complete — "Assets for Conference" has been ticked automatically.']
+        const lines = ['Sponsor portal: profile complete — "Asset Creation Status" has been updated automatically.']
 
         if (profile) {
             lines.push('Submitted via the portal:')
@@ -144,6 +173,10 @@ export function createJiraSponsorSyncService(args: {
                 const plan = computeSyncPlan({ year: portalConfig.year, source, currentSponsors, currentContacts })
                 const counts = await sponsors.applySyncPlan(plan)
 
+                // After the plan is applied — the sponsor data landing in D1
+                // matters more than the label, and this must not fail the run.
+                await stampMissingYearLabels(source)
+
                 await sponsors.finishSyncRun(runId, { status: 'ok', ...counts })
                 console.log(
                     `Sponsor sync (${trigger}): ${counts.sponsorsUpserted} upserted, ${counts.sponsorsDeactivated} deactivated, ` +
@@ -164,16 +197,30 @@ export function createJiraSponsorSyncService(args: {
             if (!portalConfig || !client || !writebackEnabled) return
 
             try {
-                const optionIds = await client.getSponsorTaskOptionIds(issueKey)
-                const alreadyTicked = optionIds.includes(portalConfig.jira.assetsTaskOptionId)
-                if (!alreadyTicked) {
-                    await client.setSponsorTaskOptionIds(issueKey, [
-                        ...optionIds,
-                        portalConfig.jira.assetsTaskOptionId,
-                    ])
+                const completeOptionId = portalConfig.jira.assetsCompleteOptionId
+                const assetsField = portalConfig.jira.fields.assetsStatus
+                const currentOptionId = await client.getStatusOptionId(issueKey, assetsField)
+                const action = planStatusWrite({
+                    current: currentOptionId,
+                    targetOptionId: completeOptionId,
+                    pendingOptionIds: portalConfig.jira.assetsPendingOptionIds,
+                })
+
+                if (action === 'set') {
+                    await client.setStatusOptionId(issueKey, assetsField, completeOptionId)
+                } else if (action === 'committee-advanced') {
+                    console.log(
+                        `Sponsor write-back: assets status on ${issueKey} already advanced by the committee ` +
+                            `(option ${currentOptionId}) — leaving it alone`,
+                    )
                 }
+                // Attach + comment only alongside a status we actually moved.
+                // 'already-set' means a previous run did it; 'committee-advanced'
+                // means they're past this point and already have the assets.
+                // Re-announcing in either case just spams the activity feed.
+                const alreadyTicked = action !== 'set'
                 await sponsors.markAssetsTaskFlipped(issueKey)
-                console.log(`Sponsor write-back: ticked "Assets for Conference" on ${issueKey}`)
+                console.log(`Sponsor write-back: moved assets status on ${issueKey}`)
 
                 // Field edits are near-invisible in the Jira UI, so also
                 // attach the logo and announce completion in the activity
@@ -198,7 +245,7 @@ export function createJiraSponsorSyncService(args: {
                             }
                         } catch (attachError) {
                             console.error(
-                                `Sponsor write-back: logo attachment on ${issueKey} failed (checkbox still ticked):`,
+                                `Sponsor write-back: logo attachment on ${issueKey} failed (status still updated):`,
                                 attachError instanceof Error ? attachError.message : attachError,
                             )
                         }
@@ -208,7 +255,7 @@ export function createJiraSponsorSyncService(args: {
                         await client.addComment(issueKey, buildCompletionComment(profile, logoAttached))
                     } catch (commentError) {
                         console.error(
-                            `Sponsor write-back: comment on ${issueKey} failed (checkbox still ticked):`,
+                            `Sponsor write-back: comment on ${issueKey} failed (status still updated):`,
                             commentError instanceof Error ? commentError.message : commentError,
                         )
                     }
@@ -220,6 +267,130 @@ export function createJiraSponsorSyncService(args: {
                     error instanceof Error ? error.message : error,
                 )
                 await sponsors.markAssetsTaskPending(issueKey).catch(() => {})
+            }
+        },
+
+        async flipWorkstreamStatuses(issueKey) {
+            if (!portalConfig || !client || !writebackEnabled) return
+
+            const flips = portalConfig.jira.statusFlips
+            const fields = portalConfig.jira.fields
+            if (!flips) return
+
+            try {
+                const sponsor = await sponsors.getSponsor(issueKey)
+                const profile = await sponsors.getProfile(issueKey)
+                const visibility = logisticsVisibility(portalConfig.jira.tierMap[sponsor?.tier ?? ''])
+                const readiness = statusFlipReadiness({ profile, visibility })
+
+                // Each entry: the Jira field, the option to write, and the
+                // values the portal is allowed to overwrite. `undefined`
+                // target = not ready yet, so nothing is written.
+                const writes: Array<{
+                    name: string
+                    fieldId: string | undefined
+                    targetOptionId: string | undefined
+                    pendingOptionIds: string[]
+                }> = [
+                    {
+                        name: 'social',
+                        fieldId: fields.socialStatus,
+                        targetOptionId: readiness.social ? flips.social?.targetOptionId : undefined,
+                        pendingOptionIds: flips.social?.pendingOptionIds ?? [],
+                    },
+                    {
+                        name: 'exhibition',
+                        fieldId: fields.exhibitionStatus,
+                        targetOptionId: readiness.exhibition ? flips.exhibition?.targetOptionId : undefined,
+                        pendingOptionIds: flips.exhibition?.pendingOptionIds ?? [],
+                    },
+                    {
+                        name: 'raffle',
+                        fieldId: fields.raffleStatus,
+                        targetOptionId: readiness.raffle ? flips.raffle?.targetOptionId : undefined,
+                        pendingOptionIds: flips.raffle?.pendingOptionIds ?? [],
+                    },
+                    {
+                        name: 'induction',
+                        fieldId: fields.inductionStatus,
+                        targetOptionId:
+                            readiness.induction === 'required'
+                                ? flips.induction?.requiredOptionId
+                                : readiness.induction === 'not-required'
+                                  ? flips.induction?.notRequiredOptionId
+                                  : undefined,
+                        pendingOptionIds: flips.induction?.pendingOptionIds ?? [],
+                    },
+                ]
+
+                for (const write of writes) {
+                    if (!write.fieldId || !write.targetOptionId) continue
+
+                    // Each flip is independent: one failing field (or one the
+                    // committee has advanced) must not stop the others.
+                    try {
+                        const current = await client.getStatusOptionId(issueKey, write.fieldId)
+                        const action = planStatusWrite({
+                            current,
+                            targetOptionId: write.targetOptionId,
+                            pendingOptionIds: write.pendingOptionIds,
+                        })
+
+                        if (action === 'set') {
+                            await client.setStatusOptionId(issueKey, write.fieldId, write.targetOptionId)
+                            console.log(`Sponsor write-back: moved ${write.name} status on ${issueKey}`)
+                        } else if (action === 'committee-advanced') {
+                            console.log(
+                                `Sponsor write-back: ${write.name} status on ${issueKey} already advanced by the ` +
+                                    `committee (option ${current}) — leaving it alone`,
+                            )
+                        }
+                    } catch (error) {
+                        console.error(
+                            `Sponsor write-back: ${write.name} status on ${issueKey} failed:`,
+                            error instanceof Error ? error.message : error,
+                        )
+                    }
+                }
+            } catch (error) {
+                console.error(
+                    `Sponsor write-back: workstream statuses on ${issueKey} failed:`,
+                    error instanceof Error ? error.message : error,
+                )
+            }
+        },
+
+        async getSponsorDeliverables(issueKey) {
+            if (!portalConfig || !client) return {}
+            try {
+                return await client.getSponsorDeliverables(issueKey)
+            } catch (error) {
+                // Informational only — the dashboard hides these sections
+                // rather than failing to load because Jira is down.
+                console.error(
+                    `Sponsor deliverables lookup for ${issueKey} failed:`,
+                    error instanceof Error ? error.message : error,
+                )
+                return {}
+            }
+        },
+
+        async getExhibitorLogistics() {
+            // Deliberately not caught: the caller is building a document for
+            // the venue, and a blank spreadsheet is worse than an error page.
+            if (!portalConfig || !client) return new Map()
+            return client.getExhibitorLogistics()
+        },
+
+        async pushLogistics(issueKey, logistics) {
+            if (!portalConfig || !client || !writebackEnabled) return
+            try {
+                await client.pushLogistics(issueKey, logistics)
+            } catch (error) {
+                console.error(
+                    `Sponsor push: logistics update on ${issueKey} failed:`,
+                    error instanceof Error ? error.message : error,
+                )
             }
         },
 

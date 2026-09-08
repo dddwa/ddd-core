@@ -1,8 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import { data, Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
+import {
+    dropzoneClass,
+    FieldError,
+    fieldLabelClass,
+    inputClass,
+    PrimaryButton,
+} from '~/components/portal-form'
+import { PortalSavedBanner } from '~/components/portal-saved-banner'
 import { requireSponsorContact } from '~/lib/auth.server'
 import { parseFormData } from '~/lib/forms/parse-form.server'
+import { conferenceManifest } from '@conference/manifest'
+import { logisticsVisibility } from '~/lib/sponsors/logistics'
+import { nextIncompleteSection, sponsorProgress } from '~/lib/sponsors/progress'
 import {
     isProfileComplete,
     LOGO_MAX_BYTES,
@@ -21,10 +32,22 @@ import type { Route } from './+types/portal.profile'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
     const { sponsor } = await requireSponsorContact(request, context)
-    const profile = await getServices(context).sponsors.getProfile(sponsor.issueKey)
+    const services = getServices(context)
+    const profile = await services.sponsors.getProfile(sponsor.issueKey)
+    const meetTheExpertsRegistration = await services.meetTheExperts.getRegistration('sponsor', sponsor.issueKey)
+
+    // Drives the "next up" link in the post-save banner, so a sponsor is
+    // always pointed at whatever they still owe us.
+    const sections = sponsorProgress({
+        profile,
+        visibility: logisticsVisibility(conferenceManifest.sponsorPortal?.jira.tierMap?.[sponsor.tier]),
+        meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
+        meetTheExpertsOffered: (conferenceManifest.meetTheExperts?.slots ?? []).length > 0,
+    })
 
     return {
         issueKey: sponsor.issueKey,
+        nextSection: nextIncompleteSection(sections) ?? null,
         blurb: profile?.blurb ?? '',
         // Prefill from the Jira-synced website if the sponsor hasn't set one.
         websiteUrl: profile?.websiteUrl ?? sponsor.website ?? '',
@@ -37,7 +60,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 /**
  * After any successful save, check whether the profile just became complete
- * and if so tick the Jira "Assets for Conference" checkbox. The flip is
+ * and if so advance the Jira assets status field. The write-back is
  * best-effort — on Jira failure it's marked pending and the hourly sync
  * retries; the sponsor's save never fails because Jira is down.
  */
@@ -50,6 +73,29 @@ async function recordCompletionIfReady(services: AppServices, sponsor: SponsorRe
         await services.sponsors.markAssetsTaskPending(sponsor.issueKey)
         await services.sponsorSync.flipAssetsTask(sponsor.issueKey)
     }
+}
+
+/**
+ * The next outstanding section, recomputed *after* a save.
+ *
+ * The loader's value is stale by the time an action returns — it was computed
+ * from the profile as it was before this save — so the banner would tell the
+ * sponsor to go to the page they're already on.
+ */
+async function nextSectionAfterSave(services: AppServices, sponsor: SponsorRecord) {
+    const [profile, meetTheExpertsRegistration] = await Promise.all([
+        services.sponsors.getProfile(sponsor.issueKey),
+        services.meetTheExperts.getRegistration('sponsor', sponsor.issueKey),
+    ])
+
+    const sections = sponsorProgress({
+        profile,
+        visibility: logisticsVisibility(conferenceManifest.sponsorPortal?.jira.tierMap?.[sponsor.tier]),
+        meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
+        meetTheExpertsOffered: (conferenceManifest.meetTheExperts?.slots ?? []).length > 0,
+    })
+    const next = nextIncompleteSection(sections)
+    return next ? { label: next.label, href: next.href } : null
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -77,7 +123,12 @@ export async function action({ request, context }: Route.ActionArgs) {
         // Sponsor-owned data flows into Jira on every save (portal wins).
         await services.sponsorSync.pushSponsorOwnedData(sponsor.issueKey, 'details')
         await recordCompletionIfReady(services, sponsor)
-        return data({ intent: 'save-details' as const, saved: true })
+        await services.sponsorSync.flipWorkstreamStatuses(sponsor.issueKey)
+        return data({
+            intent: 'save-details' as const,
+            saved: true,
+            nextSection: await nextSectionAfterSave(services, sponsor),
+        })
     }
 
     if (intent === 'upload-logo') {
@@ -106,94 +157,19 @@ export async function action({ request, context }: Route.ActionArgs) {
         // Re-attaches the new logo in Jira when this is a post-completion change.
         await services.sponsorSync.pushSponsorOwnedData(sponsor.issueKey, 'logo')
         await recordCompletionIfReady(services, sponsor)
-        return data({ intent: 'upload-logo' as const, saved: true })
+        await services.sponsorSync.flipWorkstreamStatuses(sponsor.issueKey)
+        return data({
+            intent: 'upload-logo' as const,
+            saved: true,
+            nextSection: await nextSectionAfterSave(services, sponsor),
+        })
     }
 
     return data({ intent: 'unknown' as const, error: 'Unknown action' }, { status: 400 })
 }
 
-// Styles live in css() calls (not spread objects) so Panda's static
-// extraction sees them — a spread of a plain object generates no CSS.
-const inputClass = css({
-    mt: '1',
-    w: 'full',
-    px: '3',
-    py: '2',
-    // admin-subtle (admin.200) is for card edges and vanishes on white at
-    // input scale — form fields use the login page's admin.400 treatment.
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'admin.400',
-    borderRadius: 'md',
-    fontSize: 'sm',
-    bg: 'white',
-    color: 'admin.900',
-    _placeholder: { color: 'admin.400' },
-    _focus: { outline: 'none', borderColor: 'indigo.7', boxShadow: 'focus-ring' },
-})
-
-const fieldLabelClass = css({
-    display: 'block',
-    fontSize: 'sm',
-    fontWeight: 'medium',
-    color: 'admin.700',
-})
-
-const dropzoneClass = css({
-    display: 'block',
-    borderWidth: '1px',
-    borderStyle: 'dashed',
-    borderColor: 'admin.400',
-    borderRadius: 'lg',
-    bg: 'admin.50',
-    py: '8',
-    px: '4',
-    textAlign: 'center',
-    cursor: 'pointer',
-    transition: 'colors',
-    _hover: { borderColor: 'indigo.7', bg: 'admin.100' },
-})
-
-/**
- * Portal chrome sits on white admin cards regardless of the site theme, so
- * buttons use the theme-invariant admin.* treatment (same as the auth
- * pages) rather than the theme-dependent Park UI button recipe — which
- * renders white-on-white here in the dark theme.
- */
-function PrimaryButton({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
-    return (
-        <styled.button
-            type="submit"
-            disabled={disabled}
-            bg="admin.900"
-            color="white"
-            border="none"
-            py="2.5"
-            px="6"
-            borderRadius="md"
-            fontSize="sm"
-            fontWeight="semibold"
-            cursor="pointer"
-            transition="colors"
-            _hover={{ bg: 'admin.800' }}
-            _disabled={{ bg: 'admin.400', cursor: 'not-allowed', opacity: 0.8 }}
-        >
-            {children}
-        </styled.button>
-    )
-}
-
-function FieldError({ message }: { message?: string }) {
-    if (!message) return null
-    return (
-        <styled.p mt="1" fontSize="xs" color="status.danger.fg">
-            {message}
-        </styled.p>
-    )
-}
-
 export default function PortalProfile() {
-    const { blurb, websiteUrl, socials, logo, issueKey } = useLoaderData<typeof loader>()
+    const { blurb, websiteUrl, socials, logo, issueKey, nextSection } = useLoaderData<typeof loader>()
     const actionData = useActionData<typeof action>()
     const navigation = useNavigation()
     const isSubmitting = navigation.state === 'submitting'
@@ -203,6 +179,9 @@ export default function PortalProfile() {
         actionData?.intent === 'save-details' && 'fieldErrors' in actionData ? actionData.fieldErrors : {}
     const detailsSaved = actionData?.intent === 'save-details' && 'saved' in actionData
     const logoSaved = actionData?.intent === 'upload-logo' && 'saved' in actionData
+    // The action recomputes this after writing, so it reflects the save the
+    // sponsor just made rather than the loader's pre-save snapshot.
+    const savedNextSection = actionData && 'nextSection' in actionData ? actionData.nextSection : nextSection
     const logoError = actionData?.intent === 'upload-logo' && 'error' in actionData ? actionData.error : null
 
     return (
@@ -216,11 +195,7 @@ export default function PortalProfile() {
                     We'll prepare light/dark variants for the website from it.
                 </styled.p>
 
-                {logoSaved && (
-                    <Box mb="4" p="3" bg="status.success.bg" borderRadius="md" fontSize="sm" color="status.success.fg">
-                        Logo uploaded — thank you!
-                    </Box>
-                )}
+                {logoSaved && <PortalSavedBanner message="Logo uploaded — thank you!" next={savedNextSection} />}
                 {logoError && (
                     <Box mb="4" p="3" bg="status.danger.bg" borderRadius="md" fontSize="sm" color="status.danger.fg">
                         {logoError}
@@ -296,11 +271,7 @@ export default function PortalProfile() {
                     The blurb and website link appear alongside your logo on the conference website.
                 </styled.p>
 
-                {detailsSaved && (
-                    <Box mb="4" p="3" bg="status.success.bg" borderRadius="md" fontSize="sm" color="status.success.fg">
-                        Details saved.
-                    </Box>
-                )}
+                {detailsSaved && <PortalSavedBanner message="Details saved." next={savedNextSection} />}
 
                 <Form method="post">
                     <input type="hidden" name="_action" value="save-details" />
