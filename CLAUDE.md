@@ -121,6 +121,13 @@ The branch lives in the component because almost every href is a *runtime* value
 - Static assets: `website/public/` (core) + the conference layer's `public/` (declared via `content.publicDir` in the build manifest; overlaid onto the site root by the `conference-public` vite plugin)
 - Local env vars: `<conference-dir>/wrangler/.dev.vars` (`conference-stub/wrangler/.dev.vars` standalone, `conference/wrangler/.dev.vars` in a fork) — the `cloudflare()` vite plugin resolves `.dev.vars` relative to the active wrangler config's directory, not the vite root
 - Local D1 data: `website/.wrangler/state/`
+- Visual baselines pin every input that moves on its own: the clock (`VISUAL_DATE`), Sessionize (fixture
+  interception) and now sponsors. `/` is the only baseline with no year in its path, so it renders the *current*
+  conference and its sponsor strip moved whenever a fork signed a sponsor — `E2E_SPONSOR_FIXTURES`, set by
+  `e2e/start-dev-server.mjs`, swaps in `e2e/fixtures/sponsors.ts`. Real sponsor rendering stays covered by the
+  year-pinned `/sponsors/<year>`. Note that `/` is a tall full-page capture against a *ratio* gate, so a sponsor
+  swap alone never tripped it — the seam carries its own assertion in `visual.spec.ts` rather than trusting the
+  baseline to notice it applied.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
