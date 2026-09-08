@@ -1,3 +1,4 @@
+import type { ExhibitorLogistics, SponsorDeliverables } from '../sponsors/jira-client.server'
 import type { SponsorSyncRun } from './sponsors-store'
 
 export type SyncOutcome =
@@ -19,7 +20,7 @@ export interface SponsorSyncService {
     syncNow(trigger: 'cron' | 'manual'): Promise<SyncOutcome>
 
     /**
-     * Ticks the Jira "Assets for Conference" checkbox for a completed
+     * Advances the Jira assets status field for a completed
      * profile. Read-then-write and idempotent. Failures mark the sponsor
      * pending so the next sync retries; never throws.
      */
@@ -34,6 +35,44 @@ export interface SponsorSyncService {
      */
     pushSponsorOwnedData(issueKey: string, change: 'details' | 'logo'): Promise<void>
 
+    /**
+     * Advances the other workstream status fields (social, exhibition,
+     * raffle, Optus induction) to match what the sponsor has now supplied.
+     * Same ownership rule as the assets flip: only ever moves a status off a
+     * "pending (sponsor)" value, so committee progress is never undone.
+     *
+     * Called after every profile and logistics save. Idempotent and
+     * best-effort — never throws and never blocks the sponsor's save.
+     */
+    flipWorkstreamStatuses(issueKey: string): Promise<void>
+
+    /**
+     * Committee-owned deliverables for one sponsor (ticket allocation and
+     * claim link, assets owed, upload folder), read live from Jira for the
+     * portal dashboard. Returns an empty object when the portal isn't
+     * configured or Jira is unreachable — these sections are informational,
+     * so the dashboard hides them rather than failing to load.
+     */
+    getSponsorDeliverables(issueKey: string): Promise<SponsorDeliverables>
+
     /** Retries every owed write-back (sponsors with assets_task_pending). */
     retryPendingWritebacks(): Promise<void>
+
+    /**
+     * Committee-owned logistics (bump-in/out, equipment, parking) keyed by
+     * issue key, for the venue's exhibitor spreadsheet. Read live from Jira
+     * rather than D1 — none of it is synced, and the spreadsheet goes to the
+     * venue, so it should reflect the committee's latest edits.
+     *
+     * Throws if Jira is unreachable: unlike the write-backs, a silent partial
+     * result here would be handed to the venue as if it were complete.
+     */
+    getExhibitorLogistics(): Promise<Map<string, ExhibitorLogistics>>
+
+    /**
+     * Pushes the sponsor's logistics answers into Jira. Sponsor-owned, so the
+     * portal's values win. Best-effort like the other pushes — never blocks
+     * the sponsor's save.
+     */
+    pushLogistics(issueKey: string, logistics: Record<string, string>): Promise<void>
 }

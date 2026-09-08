@@ -287,8 +287,41 @@ export interface SponsorPortalJiraConfig {
         additionalContactEmails?: string
         /** Single-select holding the sponsorship tier. */
         tier: string
-        /** Multi-checkbox "tasks" field the portal writes completion into. */
-        sponsorTasks: string
+        /**
+         * Single-select status field the portal moves when a profile
+         * completes. Committee convention is one status field per workstream
+         * (assets, social, exhibition, raffle) so each is JQL-filterable —
+         * multi-checkbox fields aren't, which is why this replaced the old
+         * "Sponsor Tasks" checklist.
+         */
+        assetsStatus: string
+        /**
+         * The other single-select workstream statuses the portal advances as
+         * the sponsor completes the matching part of the portal. Each follows
+         * the same ownership rule as `assetsStatus` (see `statusFlips`): the
+         * portal only moves it off a "pending (sponsor)" value, so committee
+         * progress is never dragged backwards. Omit any field the fork's Jira
+         * doesn't have and that flip is skipped.
+         */
+        socialStatus?: string
+        exhibitionStatus?: string
+        raffleStatus?: string
+        inductionStatus?: string
+        /**
+         * Read-only fields backing the dashboard's tickets and assets
+         * sections. The committee fills these in; the portal only displays
+         * them, so a missing field just hides that section.
+         */
+        freeTicketCount?: string
+        ticketClaimUrl?: string
+        /** Multi-checkbox of the assets this sponsor owes ("Assets Required"). */
+        assetsRequired?: string
+        /**
+         * URL of a per-sponsor upload folder (SharePoint) the committee
+         * creates and pastes in. Surfaced as an "upload your assets" link;
+         * hidden until the committee fills it in.
+         */
+        assetUploadUrl?: string
         /**
          * Paragraph field the sponsor's quote/blurb is pushed into on every
          * portal save (sponsor-owned — the portal's value overrides Jira's).
@@ -302,9 +335,96 @@ export interface SponsorPortalJiraConfig {
          * field id are skipped.
          */
         socials?: Record<string, string>
+        /**
+         * Sponsor-supplied logistics: exhibition/bump-in, Optus screen
+         * orders, raffle prize, induction and the social quote.
+         *
+         * Sponsor-owned in both directions — the portal collects these and
+         * pushes them into Jira on every save (the portal's value wins), and
+         * the admin exhibitor-list export reads them back. Jira's own status
+         * options label each of these workstreams "… Pending (Sponsor)",
+         * which is what marks them sponsor-owned rather than committee-owned.
+         *
+         * Every entry is optional, keyed by the portal's field name: a fork
+         * without a venue form omits the block entirely, and a fork whose
+         * Jira lacks one field just skips that field in both directions.
+         */
+        logistics?: {
+            exhibitorContactName?: string
+            exhibitorContactPhone?: string
+            exhibitorContactEmail?: string
+            /** Single-select combining bump-in day and start time. */
+            bumpInSlot?: string
+            /** Single-select bump-out window. */
+            bumpOutWindow?: string
+            bumpInAttendees?: string
+            /** Named individuals needing venue safety induction. */
+            loadingDockAttendees?: string
+            equipmentList?: string
+            nonLaptopElectrical?: string
+            /** Free text covering trolley *and* forklift in one field. */
+            trolleyOrForklift?: string
+            loadingDockAssistance?: string
+            porterAssistance?: string
+            /** Multi-checkbox: under-stadium drop-off/pick-up. */
+            parking?: string
+            screenOrders?: string
+            screenNotes?: string
+            screenInvoicingEmail?: string
+            rafflePrize?: string
+            raffleLocation?: string
+            socialQuote?: string
+        }
     }
-    /** Option id on `fields.sponsorTasks` flipped when a profile completes. */
-    assetsTaskOptionId: string
+    /**
+     * Option id `fields.assetsStatus` is set to when a profile completes
+     * (logo + blurb + website supplied). The portal only ever moves the
+     * status forward to this one value — the committee owns it from there.
+     */
+    assetsCompleteOptionId: string
+    /**
+     * Option ids on `fields.assetsStatus` that mean "still waiting on the
+     * sponsor" — the only values the portal will move off. A single-select
+     * is overwritten wholesale (unlike the append-only checkbox this
+     * replaced), so if the committee has already advanced the status past
+     * these, the portal leaves it alone rather than dragging it backwards.
+     */
+    assetsPendingOptionIds: string[]
+    /**
+     * The remaining workstream status flips, each triggered by the sponsor
+     * finishing the matching part of the portal:
+     *
+     *   - `social`     — logo uploaded AND a social quote supplied
+     *   - `exhibition` — every required exhibition logistics answer given
+     *   - `raffle`     — a raffle prize described
+     *   - `induction`  — resolves to `requiredOptionId` when the sponsor names
+     *                    anyone needing loading dock access, and
+     *                    `notRequiredOptionId` when they've answered the
+     *                    logistics form but named nobody
+     *
+     * `pendingOptionIds` carries the same meaning as `assetsPendingOptionIds`:
+     * the only values the portal is allowed to move off. Omit a block (or its
+     * matching field id) to disable that flip.
+     */
+    statusFlips?: {
+        social?: StatusFlipConfig
+        exhibition?: StatusFlipConfig
+        raffle?: StatusFlipConfig
+        induction?: InductionStatusFlipConfig
+    }
+    /**
+     * Year label maintenance. The sync selects issues labelled with the
+     * current year *or* carrying no year label at all, so a sponsor issue
+     * created without one still syncs; `writeYearLabel` then stamps the
+     * missing label back on. That keeps every issue labelled by the time
+     * the year is archived, without the committee having to remember.
+     *
+     * A "year label" is any label of four digits — tier labels like
+     * `Platinum` sit alongside them and must not be mistaken for one.
+     * Label write-back rides on JIRA_WRITEBACK_ENABLED like every other
+     * write, so only production actually stamps labels.
+     */
+    writeYearLabel?: boolean
     /**
      * Raw Jira tier option value → `YearSponsors` category key (e.g.
      * `{ Coffee: 'coffeeCart' }`). Unmapped values still sync and display
@@ -319,6 +439,31 @@ export interface SponsorPortalJiraConfig {
  * records sync from Jira. Omit for forks without a sponsor portal — /portal
  * returns 404 and the sync never runs.
  */
+/**
+ * One portal-driven status flip: the value to write once the sponsor has
+ * finished that workstream, and the values the portal may overwrite.
+ */
+export interface StatusFlipConfig {
+    /** Option id set when the sponsor completes this workstream. */
+    targetOptionId: string
+    /** Option ids meaning "still waiting on the sponsor" — the only values
+     * the portal will move off. */
+    pendingOptionIds: string[]
+}
+
+/**
+ * The induction flip is the one that isn't a simple "done → advance": the
+ * sponsor's own answer decides *which* value is correct, so it carries two
+ * targets instead of one.
+ */
+export interface InductionStatusFlipConfig {
+    /** Set when the sponsor names people needing loading dock access. */
+    requiredOptionId: string
+    /** Set when the sponsor has answered but named nobody. */
+    notRequiredOptionId: string
+    pendingOptionIds: string[]
+}
+
 export interface SponsorPortalConfig {
     /** Conference year the portal is collecting assets for, e.g. "2026". */
     year: string
