@@ -3,10 +3,9 @@ import type { Year } from '~/lib/conference-state-client-safe'
 import { getYearConfig } from '~/lib/get-year-config.server'
 import type { gridSmartSchema } from '~/lib/sessionize.server'
 import { getScheduleGrid } from '~/lib/sessionize.server'
-import { getConfig, getDateTimeProvider } from '~/remix-app-load-context'
+import { type ContextReader, getDateTimeProvider } from '~/remix-app-load-context'
 
 type ScheduleDay = z.infer<typeof gridSmartSchema>[number]
-type ContextReader = Parameters<typeof getConfig>[0]
 
 /**
  * A year's agenda, but only once it has been published.
@@ -22,7 +21,7 @@ type ContextReader = Parameters<typeof getConfig>[0]
  * `session-data` years are always published.
  */
 export async function getPublishedSchedule(context: ContextReader, year: Year): Promise<ScheduleDay | undefined> {
-    const yearConfig = getYearConfig(year, getConfig(context))
+    const yearConfig = getYearConfig(context, year)
     if (yearConfig.kind !== 'conference') return undefined
 
     if (yearConfig.sessions?.kind === 'sessionize') {
@@ -43,7 +42,7 @@ export async function getPublishedSchedule(context: ContextReader, year: Year): 
  * around the agenda (e.g. volunteer rosters) before it's announced.
  */
 export async function getScheduleForOrganisers(context: ContextReader, year: Year): Promise<ScheduleDay | undefined> {
-    const yearConfig = getYearConfig(year, getConfig(context))
+    const yearConfig = getYearConfig(context, year)
     if (yearConfig.kind !== 'conference') return undefined
 
     if (yearConfig.sessions?.kind === 'session-data') {
