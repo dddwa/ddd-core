@@ -40,7 +40,7 @@ describe.runIf(portal)('sponsor portal Jira status flips', () => {
     const statusFlips = () => jira().statusFlips
 
     it('keeps label-free sponsors in the production query while excluding portal-test issues', () => {
-        expect(jira.jql).toContain('AND (labels IS EMPTY OR labels NOT IN ("portal-test"))')
+        expect(jira().jql).toContain('AND (labels IS EMPTY OR labels NOT IN ("portal-test"))')
     })
 
     it('points the assets flip at options belonging to the assets field', () => {
@@ -135,7 +135,7 @@ describe.runIf(portal)('sponsor portal Jira status flips', () => {
     })
 
     it('allows a corrected induction answer to switch between both portal-owned outcomes', () => {
-        const induction = statusFlips?.induction
+        const induction = statusFlips()?.induction
         if (!induction) return
         const portalOwnedOptionIds = [induction.requiredOptionId, induction.notRequiredOptionId]
 
