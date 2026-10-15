@@ -191,7 +191,8 @@ describe.runIf(conferenceManifest.sponsorPortal)('pushLogistics', () => {
     })
 })
 
-describe('getExhibitorLogistics', () => {
+// Reads the conference's real Jira field mappings, so it only runs where a sponsor portal is configured.
+describe.runIf(conferenceManifest.sponsorPortal)('getExhibitorLogistics', () => {
     afterEach(() => vi.unstubAllGlobals())
 
     it('adds the committee-assigned room and space number to each sponsor', async () => {

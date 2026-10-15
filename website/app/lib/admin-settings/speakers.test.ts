@@ -1,3 +1,5 @@
+import { conferenceManifest } from '@conference/manifest'
+import { DateTime } from 'luxon'
 import { describe, expect, it } from 'vitest'
 import { parseSpeakerSettingsForm, resolveSpeakerSettings, speakerSettingsSchema, toDateTimeLocal } from './speakers'
 
@@ -9,11 +11,17 @@ function form(fields: Record<string, string | string[]>): FormData {
     return formData
 }
 
+// The expected instant for a datetime-local value, read in the conference's
+// own timezone — whatever that is for the conference running the suite.
+function inConferenceZone(local: string): string | null {
+    return DateTime.fromISO(local, { zone: conferenceManifest.public.timezone }).toISO()
+}
+
 describe('parseSpeakerSettingsForm', () => {
     it('reads datetime-local values in the conference timezone, not the server one', () => {
         const result = parseSpeakerSettingsForm(form({ 'dueDate.claimTicket': '2026-09-11T22:00' }))
         if (!('value' in result)) throw new Error(result.errors.join())
-        expect(result.value.dueDates.claimTicket).toBe('2026-09-11T22:00:00.000+08:00')
+        expect(result.value.dueDates.claimTicket).toBe(inConferenceZone('2026-09-11T22:00'))
         // And round-trips back to the same input value.
         expect(toDateTimeLocal(result.value.dueDates.claimTicket)).toBe('2026-09-11T22:00')
     })
@@ -85,7 +93,7 @@ describe('parseSpeakerSettingsForm', () => {
         if (!('value' in result)) throw new Error(result.errors.join())
         const resolved = resolveSpeakerSettings(speakerSettingsSchema.parse(result.value))
         expect(resolved.trainingSessions[0]).toMatchObject({ id: 'Session 2', title: 'Presentation skills' })
-        expect(resolved.trainingSessions[0]?.dateTime.toISO()).toBe('2026-09-09T17:30:00.000+08:00')
+        expect(resolved.trainingSessions[0]?.dateTime.toISO()).toBe(inConferenceZone('2026-09-09T17:30'))
         expect(resolved.dinner?.endDateTime.hour).toBe(20)
     })
 })
