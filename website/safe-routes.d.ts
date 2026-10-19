@@ -30,6 +30,14 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/admin.dashboard.js').SearchParams>,
     },
+    "/admin/feedback": {
+      params: never,
+      query: ExportedQuery<import('app/routes/admin.feedback.js').SearchParams>,
+    },
+    "/admin/feedback/export": {
+      params: never,
+      query: ExportedQuery<import('app/routes/admin.feedback_.export.js').SearchParams>,
+    },
     "/admin/settings": {
       params: never,
       query: ExportedQuery<import('app/routes/admin.settings.js').SearchParams>,
@@ -106,9 +114,9 @@ declare module "safe-routes" {
       params: {'year'?: string | number},
       query: ExportedQuery<import('app/routes/_layout.agenda.($year).js').SearchParams>,
     },
-    "/agenda/:year/talk/:sessionId": {
-      params: {'year': string | number; 'sessionId': string | number},
-      query: ExportedQuery<import('app/routes/_layout.agenda.$year.talk.$sessionId.js').SearchParams>,
+    "/agenda/:year?/talk/:sessionId": {
+      params: {'year'?: string | number; 'sessionId': string | number},
+      query: ExportedQuery<import('app/routes/_layout.agenda.($year).talk.$sessionId.js').SearchParams>,
     },
     "/agenda/my": {
       params: never,
@@ -121,6 +129,10 @@ declare module "safe-routes" {
     "/api/agenda/shortlist": {
       params: never,
       query: ExportedQuery<import('app/routes/api.agenda.shortlist.js').SearchParams>,
+    },
+    "/api/feedback/reviewed": {
+      params: never,
+      query: ExportedQuery<import('app/routes/api.feedback.reviewed.js').SearchParams>,
     },
     "/api/runsheets/session/:sessionId": {
       params: {'sessionId': string | number},
@@ -194,6 +206,10 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/blog.rss[.xml].js').SearchParams>,
     },
+    "/feedback": {
+      params: never,
+      query: ExportedQuery<import('app/routes/_layout.feedback.js').SearchParams>,
+    },
     "/portal": {
       params: never,
       query: ExportedQuery<import('app/routes/portal._index.js').SearchParams>,
@@ -254,6 +270,7 @@ declare module "safe-routes" {
   export type RouteId =
             | 'root'
             | 'routes/api.runsheets.session.$sessionId'
+            | 'routes/api.feedback.reviewed'
             | 'routes/api.tito-registration'
             | 'routes/api.agenda.shortlist'
             | 'routes/app-agenda-sessions'
@@ -275,14 +292,15 @@ declare module "safe-routes" {
             | 'routes/auth.login'
             | 'routes/api.theme'
             | 'routes/_layout'
-            | 'routes/_layout.agenda.$year.talk.$sessionId'
             | 'routes/_layout.runsheets.($filter)'
             | 'routes/_layout.runsheets.bump-in'
             | 'routes/_layout.sponsors.($year)'
             | 'routes/_layout.agenda.($year)'
+            | 'routes/_layout.agenda.($year).talk.$sessionId'
             | 'routes/_layout.blog._index'
             | 'routes/_layout.blog.$slug'
             | 'routes/_layout.agenda.my'
+            | 'routes/_layout.feedback'
             | 'routes/_layout._index'
             | 'routes/_layout.voting'
             | 'routes/_layout.share'
@@ -302,9 +320,11 @@ declare module "safe-routes" {
             | 'routes/admin.settings_.volunteers'
             | 'routes/admin.sponsors_.follow-up'
             | 'routes/admin.settings_.speakers'
+            | 'routes/admin.feedback_.export'
             | 'routes/admin.volunteers_.save'
             | 'routes/admin.volunteers'
             | 'routes/admin.dashboard'
+            | 'routes/admin.feedback'
             | 'routes/admin.settings'
             | 'routes/admin.speakers'
             | 'routes/admin.speakers.$sessionizeId'

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { FIXTURE_CONFERENCE_COOKIE } from '../../../e2e/fixtures/conference-year'
 import { DEV_DATE_OVERRIDE_COOKIE } from './dev-date-time-provider.server'
 
 /**
@@ -17,6 +18,9 @@ const DEV_ONLY_MARKERS = [
     // anyone who can set a Worker var blank the site's sponsors — the people
     // paying for the conference.
     { name: 'sponsor fixtures', value: 'E2E_SPONSOR_FIXTURES', guard: 'cloudflare/build-config.server.ts' },
+    // The fixture conference replaces the site's whole conference calendar for
+    // any request carrying its cookie.
+    { name: 'fixture conference cookie', value: FIXTURE_CONFERENCE_COOKIE, guard: 'load-context.server.ts' },
     // The local-dev session secret is public (it's in the repo). Shipping it
     // as a fallback would let anyone forge an admin session cookie on a
     // deployment whose SESSION_SECRET went missing.
