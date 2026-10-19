@@ -3,6 +3,7 @@ import { data, Form, useActionData, useLoaderData, useNavigation } from 'react-r
 import { AdminCard } from '~/components/admin-card'
 import { FieldError, fieldLabelClass, inputClass, PrimaryButton, textareaClass } from '~/components/portal-form'
 import { PortalSavedBanner } from '~/components/portal-saved-banner'
+import { isMeetTheExpertsOffered } from '~/lib/admin-settings/speakers.server'
 import { requireSponsorContact } from '~/lib/auth.server'
 import { parseFormData } from '~/lib/forms/parse-form.server'
 import {
@@ -47,7 +48,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         sponsor,
         visibility,
         meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
-        meetTheExpertsOffered: (conferenceManifest.meetTheExperts?.slots ?? []).length > 0,
+        meetTheExpertsOffered: await isMeetTheExpertsOffered(context),
     })
 
     return {
@@ -132,7 +133,7 @@ export async function action({ request, context }: Route.ActionArgs) {
             sponsor,
             visibility: logisticsVisibility(mappedTier(sponsor.tier)),
             meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
-            meetTheExpertsOffered: (conferenceManifest.meetTheExperts?.slots ?? []).length > 0,
+            meetTheExpertsOffered: await isMeetTheExpertsOffered(context),
         }),
     )
 
@@ -459,7 +460,7 @@ export default function PortalLogistics() {
 
                     {visibility.induction && (
                         <>
-                            <SectionHeading hint="The venue requires a safety induction for anyone accessing the loading dock. We pass these names to them for that purpose only.">
+                            <SectionHeading hint="The venue requires a safety induction for anyone accessing the loading dock. We pass these names and emails to them for that purpose only.">
                                 Bump-in attendees
                             </SectionHeading>
                             <Box display="grid" gap="4">
@@ -473,7 +474,7 @@ export default function PortalLogistics() {
                                 <LongText
                                     name="loadingDockAttendees"
                                     label="Who needs loading dock access?"
-                                    hint="One name per line — these people need the venue's safety induction"
+                                    hint="One person per line, with their name and email — the venue sends each of them a safety induction"
                                     value={value('loadingDockAttendees')}
                                     errors={errors}
                                 />
