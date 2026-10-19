@@ -17,12 +17,14 @@ import { useRevalidator } from 'react-router'
  */
 export function useQueuedSave<Change extends Record<string, string>>(logLabel: string, actionPath: string) {
     const revalidator = useRevalidator()
+    const needsRevalidation = useRef(false)
     const queue = useRef<Promise<unknown>>(Promise.resolve())
     const [inFlight, setInFlight] = useState(0)
     const [saveError, setSaveError] = useState<string | null>(null)
 
     const save = useCallback(
         (change: Change) => {
+            needsRevalidation.current = true
             setInFlight((n) => n + 1)
             queue.current = queue.current
                 .then(async () => {
@@ -36,7 +38,9 @@ export function useQueuedSave<Change extends Record<string, string>>(logLabel: s
                     // An expired admin session redirects to the (HTML) login
                     // page, which fetch follows and reports as a 200.
                     if (!response.headers.get('Content-Type')?.includes('application/json')) {
-                        throw new Error('Save failed — your session may have expired. Reload the page to sign in again.')
+                        throw new Error(
+                            'Save failed — your session may have expired. Reload the page to sign in again.',
+                        )
                     }
                     const result: { success: boolean; error?: string } = await response.json()
                     if (!result.success) {
@@ -55,15 +59,11 @@ export function useQueuedSave<Change extends Record<string, string>>(logLabel: s
 
     const isSaving = inFlight > 0
 
-    // Only fire on the saving -> idle edge: `revalidator` is a new object on
-    // every state change, so keying on idle alone re-runs after each
-    // revalidation and loops forever.
-    const wasSaving = useRef(false)
     useEffect(() => {
-        if (wasSaving.current && !isSaving) {
+        if (!isSaving && needsRevalidation.current && revalidator.state === 'idle') {
+            needsRevalidation.current = false
             void revalidator.revalidate()
         }
-        wasSaving.current = isSaving
     }, [isSaving, revalidator])
 
     return { save, isSaving, saveError }
