@@ -13,6 +13,7 @@ import {
     nextIncompleteSection,
     splitJiraOptions,
     sponsorProgress,
+    stripTierSuffix,
 } from '~/lib/sponsors/progress'
 import { getServices } from '~/remix-app-load-context'
 import { Box, Flex, styled } from '~/styled-system/jsx'
@@ -38,6 +39,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const slots = conferenceManifest.meetTheExperts?.slots ?? []
     const sections = sponsorProgress({
         profile,
+        sponsor,
         visibility: logisticsVisibility(mappedTier(sponsor.tier)),
         meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
         meetTheExpertsOffered: slots.length > 0,
@@ -111,7 +113,7 @@ export default function PortalDashboard() {
     // shows on the dashboard instead.
     useEffect(() => {
         if (meetTheExpertsJustResponded) setMeetTheExpertsOpen(false)
-    }, [meetTheExpertsJustResponded])
+    }, [actionData, meetTheExpertsJustResponded])
 
     return (
         <Box maxW="4xl" mx="auto">
@@ -136,7 +138,12 @@ export default function PortalDashboard() {
                         <styled.p fontWeight="medium">Next up: {nextSection?.label}</styled.p>
                         <styled.p mt="1">
                             Head to{' '}
-                            <AppLink to={nextSection?.href ?? '/portal/profile'} color="status.info.fg" unstyled textDecoration="underline">
+                            <AppLink
+                                to={nextSection?.href ?? '/portal/profile'}
+                                color="status.info.fg"
+                                unstyled
+                                textDecoration="underline"
+                            >
                                 {nextSection?.label}
                             </AppLink>{' '}
                             to finish the outstanding items. You can come back and change anything later.
@@ -155,18 +162,20 @@ export default function PortalDashboard() {
                     {deliverables.assetsRequired ? (
                         <>
                             <styled.p fontSize="sm" color="admin.600" mb="3">
-                                Based on your sponsorship level, these are the assets we'll need. Your website logo
-                                and blurb go in{' '}
+                                Based on your sponsorship level, these are the assets we'll need. Your website logo and
+                                blurb go in{' '}
                                 <AppLink to="/portal/profile" unstyled textDecoration="underline" color="admin.900">
                                     Company profile
                                 </AppLink>
-                                {deliverables.assetUploadUrl ? '; everything else goes in the upload folder below.' : '.'}
+                                {deliverables.assetUploadUrl
+                                    ? '; everything else goes in the upload folder below.'
+                                    : '.'}
                             </styled.p>
                             <Flex direction="column" gap="2" mb="4">
                                 {splitJiraOptions(deliverables.assetsRequired).map((asset) => (
                                     <Flex key={asset} align="center" gap="3" p="3" borderRadius="md" bg="admin.100">
                                         <styled.span fontSize="sm" color="admin.900">
-                                            {asset}
+                                            {stripTierSuffix(asset)}
                                         </styled.span>
                                     </Flex>
                                 ))}
@@ -198,6 +207,22 @@ export default function PortalDashboard() {
                 </AdminCard>
             )}
 
+            {/* Room sponsors only, and only once the committee has actually
+                chosen — an unassigned value reads back as undefined, so this
+                stays hidden rather than naming a room nobody decided on. */}
+            {deliverables.exhibitorRoom && (
+                <AdminCard>
+                    <styled.h2 fontSize="xl" fontWeight="semibold" mb="2">
+                        Your room
+                    </styled.h2>
+                    <styled.p fontSize="sm" color="admin.600">
+                        Your sponsorship covers{' '}
+                        <styled.strong fontWeight="semibold">{deliverables.exhibitorRoom}</styled.strong>. We'll have
+                        your branding in the room on the day.
+                    </styled.p>
+                </AdminCard>
+            )}
+
             {deliverables.ticketClaimUrl && (
                 <AdminCard>
                     <styled.h2 fontSize="xl" fontWeight="semibold" mb="2">
@@ -209,8 +234,8 @@ export default function PortalDashboard() {
                                   deliverables.freeTicketCount === '1' ? '' : 's'
                               }. `
                             : 'Your sponsorship includes complimentary tickets. '}
-                        Share the link below with each person attending — they fill in their own details, and the
-                        link works once per ticket.
+                        Share the link below with each person attending — they fill in their own details, and the link
+                        works once per ticket.
                     </styled.p>
                     <AppLink
                         to={deliverables.ticketClaimUrl}
@@ -237,8 +262,7 @@ export default function PortalDashboard() {
                         Meet the Experts
                     </styled.h2>
                     <styled.p fontSize="sm" color="admin.600" mb="4">
-                        Put someone from your team forward to chat with attendees during a Meet the Experts time
-                        slot.
+                        Put someone from your team forward to chat with attendees during a Meet the Experts time slot.
                     </styled.p>
 
                     {meetTheExpertsJustResponded && (
@@ -304,8 +328,8 @@ export default function PortalDashboard() {
                     Who can access this workspace
                 </styled.h2>
                 <styled.p fontSize="sm" color="admin.600" mb="4">
-                    Anyone below can sign in with their email and edit your company's details. To add or remove
-                    people, contact the sponsorship team.
+                    Anyone below can sign in with their email and edit your company's details. To add or remove people,
+                    contact the sponsorship team.
                 </styled.p>
                 <Flex direction="column" gap="2">
                     {contacts.map((email) => (

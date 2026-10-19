@@ -17,18 +17,33 @@ export function createStubJiraClient(): JiraClient {
                     issueKey: 'SPN-101',
                     companyName: 'Acme Rockets',
                     tier: 'Platinum',
+                    // Exercises the "Your room" card and the admin Room column.
+                    exhibitorRoom: 'River View Room 2',
                     website: 'https://acme.example.com',
                     jiraStatus: 'Committed',
                     contactEmails: ['sponsor-acme@example.com', 'marketing-acme@example.com'],
                     hasYearLabel: true,
                 },
                 {
+                    // Answered the sponsorship team by email before the
+                    // portal existed, so the committee already has their
+                    // quote and socials in Jira — exercises the prefill path.
                     issueKey: 'SPN-102',
                     companyName: 'Globex Corporation',
                     tier: 'Gold',
                     jiraStatus: 'Committed',
                     contactEmails: ['sponsor-globex@example.com'],
                     hasYearLabel: true,
+                    quote: 'Globex is proud to back the local tech community.',
+                    socials: { linkedin: 'https://linkedin.com/company/globex' },
+                    // Committee-collected logistics, so the local flow walks
+                    // the prefill path. Later stub syncs restore these fixture
+                    // values just as a real Jira sync refreshes the portal copy.
+                    logistics: {
+                        bumpInSlot: 'Friday 1pm - 2pm',
+                        screenOrders: '55" LCD ($500+GST)',
+                        socialQuote: 'Globex: proud supporters of the Perth tech community.',
+                    },
                 },
                 {
                     // Deliberately unlabelled — exercises the year-label
@@ -65,12 +80,38 @@ export function createStubJiraClient(): JiraClient {
                 ticketClaimUrl: 'https://ti.to/example/stub-sponsor-tickets',
                 assetsRequired: 'Logo and blurb on Website (All types), Video for Mega Screen (Platinum, Gold)',
                 assetUploadUrl: 'https://example.sharepoint.com/stub-sponsor-uploads',
+                // Only the Room sponsor has one. Returning a room for every
+                // issue made the local dashboard show Acme's room to Globex,
+                // and hid the unassigned case that `assignedRoom()` exists to
+                // protect — so the fixture could never surface a bug there.
+                exhibitorRoom: issueKey === 'SPN-101' ? 'River View Room 2' : undefined,
             }
         },
 
-        async pushLogistics(issueKey, logistics) {
+        async getAssetTracking() {
+            // One sponsor per state the follow-up list distinguishes: assets
+            // received, video owed and not yet in, and nothing recorded.
+            const video = 'Logo and blurb on Website (All types), Video for Mega Screen (Platinum, Gold)'
+            return new Map([
+                [
+                    'SPN-101',
+                    {
+                        assetsRequired: video,
+                        assetsStatus: 'All Assets received',
+                        uploadUrl: 'https://example.sharepoint.com/stub-sponsor-uploads/acme',
+                    },
+                ],
+                ['SPN-102', { assetsRequired: video, assetsStatus: 'Asset Information Pending (Sponsor)' }],
+            ])
+        },
+
+        async pushLogistics(issueKey, logistics, submittedKeys) {
             const answered = Object.entries(logistics).filter(([, value]) => value.trim() !== '')
-            console.log(`[jira-stub] pushLogistics(${issueKey}, ${answered.length} answered fields) — no-op`)
+            const cleared = [...submittedKeys].filter((key) => !logistics[key])
+            console.log(
+                `[jira-stub] pushLogistics(${issueKey}, ${answered.length} answered, ` +
+                    `${cleared.length} explicitly cleared) — no-op`,
+            )
         },
 
         async addLabel(issueKey, label) {

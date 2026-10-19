@@ -25,8 +25,16 @@ export interface JiraClient {
      * Writes sponsor-supplied logistics back, converting each value to the
      * shape its Jira field expects (select, multi-checkbox, rich text or
      * plain string). Unmapped fields are skipped.
+     *
+     * `submittedKeys` names the portal fields that were on the submitted
+     * form, so a field the sponsor never answered is left alone rather than
+     * cleared — see `buildLogisticsPayload`.
      */
-    pushLogistics(issueKey: string, logistics: Record<string, string>): Promise<void>
+    pushLogistics(
+        issueKey: string,
+        logistics: Record<string, string>,
+        submittedKeys: ReadonlySet<string>,
+    ): Promise<void>
     /** Posts a plain-text comment (shows in the activity feed, notifies watchers). */
     addComment(issueKey: string, text: string): Promise<void>
     /** Attaches a file to the issue (shows in the Attachments panel). */
@@ -40,6 +48,22 @@ export interface JiraClient {
      * and Jira, so any of these may be undefined.
      */
     getSponsorDeliverables(issueKey: string): Promise<SponsorDeliverables>
+    /**
+     * Assets owed and the committee's asset status, per issue key, for the
+     * admin follow-up list. The portal never sees the upload folder, so the
+     * committee's "Asset Creation Status" is the only record of whether
+     * videos and artwork have arrived.
+     */
+    getAssetTracking(): Promise<Map<string, AssetTracking>>
+}
+
+export interface AssetTracking {
+    /** Same as `SponsorDeliverables.assetsRequired`. */
+    assetsRequired?: string
+    /** The committee's "Asset Creation Status" option label. */
+    assetsStatus?: string
+    /** Same as `SponsorDeliverables.assetUploadUrl` — where the files land. */
+    uploadUrl?: string
 }
 
 /** Read-only, committee-filled values surfaced on the portal dashboard. */
@@ -52,6 +76,28 @@ export interface SponsorDeliverables {
     assetsRequired?: string
     /** Per-sponsor upload folder (SharePoint) the committee creates. */
     assetUploadUrl?: string
+    /**
+     * The room this sponsorship covers, for room sponsors. Undefined until the
+     * committee assigns one — including when Jira's own default is still in
+     * place (see `unassignedRoomValue`), so this never reports a room nobody
+     * chose.
+     */
+    exhibitorRoom?: string
+}
+
+/**
+ * A room value, or undefined when nobody has actually chosen one.
+ *
+ * Jira single-selects can carry a default, so a freshly created sponsor can
+ * read back as the first room in the list even though the committee hasn't
+ * decided. Showing that would be worse than showing nothing: the sponsor would
+ * turn up at the wrong room. Anything equal to `unassignedValue` is therefore
+ * treated as unset.
+ */
+export function assignedRoom(value: string | undefined, unassignedValue?: string): string | undefined {
+    if (!value) return undefined
+    if (unassignedValue && value === unassignedValue) return undefined
+    return value
 }
 
 /**
@@ -178,6 +224,122 @@ function isRichText(fieldMeta: { schema?: { type?: string; custom?: string } }):
     return typeof fieldMeta.schema?.custom === 'string' && fieldMeta.schema.custom.includes('textarea')
 }
 
+interface JiraEditFieldMeta {
+    schema?: { type?: string; items?: string; custom?: string }
+    allowedValues?: unknown[]
+}
+
+/**
+ * A field the sponsor submitted that Jira won't accept — an answer matching no
+ * allowed option, or a field that isn't on the issue's edit screen.
+ *
+ * A type rather than a message prefix so the route can tell "your answer needs
+ * correcting" from "Jira is down" without matching on prose: reworded copy
+ * would otherwise silently downgrade this to the generic failure.
+ */
+export class JiraFieldRejectedError extends Error {
+    constructor(
+        /** Portal field name, e.g. `bumpInSlot`. */
+        readonly portalKey: string,
+        message: string,
+    ) {
+        super(message)
+        this.name = 'JiraFieldRejectedError'
+    }
+}
+
+/**
+ * Builds the Jira payload for one logistics save.
+ *
+ * `submittedKeys` is the load-bearing argument. The portal must distinguish
+ * three states that all used to arrive as "no value":
+ *
+ *   - **never answered** — the key was not on the form the sponsor submitted.
+ *     Jira is left alone. The committee collects most of this by email, so
+ *     writing a null here destroys their work.
+ *   - **explicitly cleared** — the field was on the form and submitted empty.
+ *     Jira is cleared, because the sponsor removed an answer on purpose.
+ *   - **answered** — set as given.
+ *
+ * Before this existed the push looped over *every* mapped field and planned
+ * `undefined` as a clear, so one sponsor save wiped every Jira value the
+ * committee had gathered but the sponsor hadn't retyped.
+ *
+ * A submitted field missing from `editmeta` fails the save: it isn't on the
+ * issue's screen (or we lack permission), so telling the sponsor it saved
+ * would be false. Unsubmitted stored fields are still left alone.
+ */
+export function buildLogisticsPayload(args: {
+    /** Portal field name → Jira custom field id, from the manifest. */
+    mapping: Record<string, string | undefined>
+    /** `editmeta.fields`, so each value is converted to the shape its field wants. */
+    editMetaFields: Record<string, JiraEditFieldMeta> | undefined
+    /** The sponsor's stored answers. Absent key = never answered. */
+    logistics: Record<string, string>
+    /** Portal field names present on the submitted form. */
+    submittedKeys: ReadonlySet<string>
+}): Record<string, unknown> {
+    const { mapping, editMetaFields, logistics, submittedKeys } = args
+    const payload: Record<string, unknown> = {}
+
+    for (const [portalKey, fieldId] of Object.entries(mapping)) {
+        if (typeof fieldId !== 'string' || fieldId === '') continue
+
+        const stored = logistics[portalKey]
+        const wasSubmitted = submittedKeys.has(portalKey)
+        // Neither stored nor submitted — the committee may own this value.
+        if (stored === undefined && !wasSubmitted) continue
+
+        const fieldMeta = editMetaFields?.[fieldId]
+        if (!fieldMeta) {
+            if (wasSubmitted) {
+                throw new JiraFieldRejectedError(portalKey, `Jira field for "${portalKey}" is not editable`)
+            }
+            continue
+        }
+
+        // A submitted-but-absent value is an explicit clear; `planJiraFieldValue`
+        // already treats '' as one.
+        const planned = planJiraFieldValue(fieldMeta, stored ?? '')
+        if (planned.action === 'set') {
+            payload[fieldId] = planned.value
+        } else if (wasSubmitted) {
+            throw new JiraFieldRejectedError(portalKey, `Jira cannot accept "${stored ?? ''}" for "${portalKey}"`)
+        }
+    }
+
+    return payload
+}
+
+/** Converts one portal answer to Jira's edit shape. Unknown option values are
+ * skipped rather than cleared: they may be a legacy option no longer present
+ * in editmeta, and an unrelated portal save must preserve Jira's current
+ * value. Explicit blanks still clear the field. */
+export function planJiraFieldValue(
+    fieldMeta: JiraEditFieldMeta,
+    raw: string | undefined,
+): { action: 'set'; value: unknown } | { action: 'skip' } {
+    const type = fieldMeta.schema?.type
+    const value = raw?.trim() ?? ''
+
+    if (type === 'option') {
+        if (!value) return { action: 'set', value: null }
+        const option = matchOption(fieldMeta.allowedValues, value)
+        return option ? { action: 'set', value: option } : { action: 'skip' }
+    }
+    if (type === 'array') {
+        if (!value) return { action: 'set', value: [] }
+        const answers = value.split(',').map((part) => part.trim())
+        const options = answers.map((answer) => matchOption(fieldMeta.allowedValues, answer))
+        if (options.some((option) => option === null)) return { action: 'skip' }
+        return { action: 'set', value: options }
+    }
+    if (type === 'string' && isRichText(fieldMeta)) {
+        return { action: 'set', value: value ? textToAdf(value) : null }
+    }
+    return { action: 'set', value: value || null }
+}
+
 const YEAR_LABEL = /^\d{4}$/
 
 /** The ten years before `year` as a quoted JQL list, for `{pastYears}`. */
@@ -233,6 +395,13 @@ export function createJiraClient(args: {
             const jql = (jqlOverride ?? portalConfig.jira.jql)
                 .replaceAll('{year}', portalConfig.year)
                 .replaceAll('{pastYears}', pastYearsList(portalConfig.year))
+            const socialFieldIds = Object.values(fields.socials ?? {}).filter(
+                (id): id is string => typeof id === 'string' && id !== '',
+            )
+            const logisticsMapping = fields.logistics ?? {}
+            const logisticsFieldIds = Object.values(logisticsMapping).filter(
+                (id): id is string => typeof id === 'string' && id !== '',
+            )
             const requestFields = [
                 'summary',
                 'status',
@@ -242,6 +411,12 @@ export function createJiraClient(args: {
                 fields.contactEmail,
                 fields.tier,
                 ...(fields.additionalContactEmails ? [fields.additionalContactEmails] : []),
+                ...(fields.exhibitorRoom ? [fields.exhibitorRoom] : []),
+                // Prefill sources: what the committee already captured by
+                // email before the sponsor ever opened the portal.
+                ...(fields.quote ? [fields.quote] : []),
+                ...socialFieldIds,
+                ...logisticsFieldIds,
             ]
 
             const issues: SyncSourceSponsor[] = []
@@ -263,13 +438,52 @@ export function createJiraClient(args: {
                         ? issueFields.labels.filter((l): l is string => typeof l === 'string')
                         : []
 
+                    // `fieldAsText` rather than `fieldString`: the quote is a
+                    // rich-text field, so it arrives as an ADF document that
+                    // needs flattening. It also reports an empty field as
+                    // undefined, which is what lets a sponsor's own blank
+                    // answer win over a stale Jira value.
+                    const socials: Record<string, string> = {}
+                    for (const [platform, fieldId] of Object.entries(fields.socials ?? {})) {
+                        const url = fieldAsText(issueFields, fieldId)
+                        if (url) socials[platform] = url
+                    }
+
+                    // Same prefill rule for the logistics the committee
+                    // collects by email — bump-in times, screen orders, the
+                    // social quote. Keyed by portal field name, so callers
+                    // never deal in customfield ids.
+                    const logistics: Record<string, string> = {}
+                    for (const [portalKey, fieldId] of Object.entries(logisticsMapping)) {
+                        if (typeof fieldId !== 'string' || fieldId === '') continue
+                        const text = fieldAsText(issueFields, fieldId)
+                        if (text) logistics[portalKey] = text
+                    }
+
                     issues.push({
                         issueKey: issue.key,
                         companyName: fieldString(issueFields, fields.companyName) ?? summary ?? issue.key,
                         tier: fieldOptionValue(issueFields, fields.tier) ?? 'Unknown',
                         website: fieldString(issueFields, fields.website),
                         jiraStatus: typeof status?.name === 'string' ? status.name : undefined,
+                        exhibitorRoom: assignedRoom(
+                            fieldAsText(issueFields, fields.exhibitorRoom),
+                            portalConfig.jira.unassignedRoomValue,
+                        ),
                         hasYearLabel: labels.some((l) => YEAR_LABEL.test(l)),
+                        quote: fieldAsText(issueFields, fields.quote),
+                        socials: Object.keys(socials).length > 0 ? socials : undefined,
+                        logistics: Object.keys(logistics).length > 0 ? logistics : undefined,
+                        logisticsKeys: Object.entries(logisticsMapping)
+                            .filter(([, fieldId]) => typeof fieldId === 'string' && fieldId !== '')
+                            .map(([portalKey]) => portalKey),
+                        detailsKeys: [
+                            'websiteUrl',
+                            ...(fields.quote ? ['blurb'] : []),
+                            ...Object.entries(fields.socials ?? {})
+                                .filter(([, fieldId]) => typeof fieldId === 'string' && fieldId !== '')
+                                .map(([platform]) => `social_${platform}`),
+                        ],
                         contactEmails: parseContactEmails(
                             fieldString(issueFields, fields.contactEmail),
                             fields.additionalContactEmails
@@ -286,9 +500,7 @@ export function createJiraClient(args: {
         },
 
         async getStatusOptionId(issueKey, fieldId) {
-            const response = await jiraFetch(
-                `/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${fieldId}`,
-            )
+            const response = await jiraFetch(`/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=${fieldId}`)
             const body = await parseJson<{ fields?: Record<string, unknown> }>(response)
             return fieldOptionId(body.fields ?? {}, fieldId)
         },
@@ -299,6 +511,7 @@ export function createJiraClient(args: {
                 fields.ticketClaimUrl,
                 fields.assetsRequired,
                 fields.assetUploadUrl,
+                fields.exhibitorRoom,
             ].filter((id): id is string => Boolean(id))
             if (wanted.length === 0) return {}
 
@@ -313,7 +526,45 @@ export function createJiraClient(args: {
                 ticketClaimUrl: fieldAsText(issueFields, fields.ticketClaimUrl),
                 assetsRequired: fieldAsText(issueFields, fields.assetsRequired),
                 assetUploadUrl: fieldAsText(issueFields, fields.assetUploadUrl),
+                exhibitorRoom: assignedRoom(
+                    fieldAsText(issueFields, fields.exhibitorRoom),
+                    portalConfig.jira.unassignedRoomValue,
+                ),
             }
+        },
+
+        async getAssetTracking() {
+            const map = new Map<string, AssetTracking>()
+            const requestFields = [fields.assetsRequired, fields.assetsStatus, fields.assetUploadUrl].filter((id): id is string =>
+                Boolean(id),
+            )
+            if (requestFields.length === 0) return map
+
+            const jql = (jqlOverride ?? portalConfig.jira.jql)
+                .replaceAll('{year}', portalConfig.year)
+                .replaceAll('{pastYears}', pastYearsList(portalConfig.year))
+
+            let nextPageToken: string | undefined
+            do {
+                const response = await jiraFetch('/rest/api/3/search/jql', {
+                    method: 'POST',
+                    body: JSON.stringify({ jql, fields: requestFields, maxResults: 100, nextPageToken }),
+                })
+                const page = await parseJson<JiraSearchResponse>(response)
+
+                for (const issue of page.issues ?? []) {
+                    const issueFields = issue.fields ?? {}
+                    map.set(issue.key, {
+                        assetsRequired: fieldAsText(issueFields, fields.assetsRequired),
+                        assetsStatus: fieldAsText(issueFields, fields.assetsStatus),
+                        uploadUrl: fieldAsText(issueFields, fields.assetUploadUrl),
+                    })
+                }
+
+                nextPageToken = page.isLast ? undefined : page.nextPageToken
+            } while (nextPageToken)
+
+            return map
         },
 
         async setStatusOptionId(issueKey, fieldId, optionId) {
@@ -365,7 +616,7 @@ export function createJiraClient(args: {
             return map
         },
 
-        async pushLogistics(issueKey, logistics) {
+        async pushLogistics(issueKey, logistics, submittedKeys) {
             const mapping = fields.logistics
             if (!mapping) return
 
@@ -373,6 +624,14 @@ export function createJiraClient(args: {
                 (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1] !== '',
             )
             if (entries.length === 0) return
+
+            // Nothing stored and nothing submitted — every field would be
+            // "never answered", so there is no write to make. Skipping here
+            // also avoids an editmeta fetch per no-op retry.
+            const hasWork = entries.some(
+                ([portalKey]) => logistics[portalKey] !== undefined || submittedKeys.has(portalKey),
+            )
+            if (!hasWork) return
 
             // Ask what type each field is rather than assuming: Jira rejects
             // a plain string for a select, and field types do change.
@@ -384,32 +643,12 @@ export function createJiraClient(args: {
                 >
             }>(metaResponse)
 
-            const payload: Record<string, unknown> = {}
-            for (const [portalKey, fieldId] of entries) {
-                const raw = logistics[portalKey]
-                const fieldMeta = meta.fields?.[fieldId]
-                // Not on the screen (or no permission) — writing it would 400
-                // the request and lose every other answer.
-                if (!fieldMeta) continue
-
-                const type = fieldMeta.schema?.type
-                const value = raw?.trim() ?? ''
-
-                if (type === 'option') {
-                    payload[fieldId] = value ? matchOption(fieldMeta.allowedValues, value) : null
-                } else if (type === 'array') {
-                    payload[fieldId] = value
-                        ? value
-                              .split(',')
-                              .map((part) => matchOption(fieldMeta.allowedValues, part.trim()))
-                              .filter((option) => option !== null)
-                        : []
-                } else if (type === 'string' && isRichText(fieldMeta)) {
-                    payload[fieldId] = value ? textToAdf(value) : null
-                } else {
-                    payload[fieldId] = value || null
-                }
-            }
+            const payload = buildLogisticsPayload({
+                mapping,
+                editMetaFields: meta.fields,
+                logistics,
+                submittedKeys,
+            })
 
             if (Object.keys(payload).length > 0) {
                 await this.updateIssueFields(issueKey, payload)
@@ -466,7 +705,9 @@ export function createJiraClient(args: {
             })
             if (!response.ok) {
                 const body = await response.text().catch(() => '')
-                throw new Error(`Jira attachment upload to ${issueKey} failed: ${response.status} ${body.slice(0, 300)}`)
+                throw new Error(
+                    `Jira attachment upload to ${issueKey} failed: ${response.status} ${body.slice(0, 300)}`,
+                )
             }
         },
     }

@@ -241,6 +241,14 @@ export type NavConfig = NavItem[]
  * Optional mobile app advertising. When set, /app is reachable and links to
  * the app stores. When absent, /app returns 404 (most forks don't have a
  * mobile app and shouldn't surface a dead route).
+ *
+ * `retired` splits those two behaviours apart. A fork that has stopped
+ * maintaining its app still has copies installed on people's phones, and
+ * those copies poll /app-config on launch — so the endpoint must keep
+ * answering even once the website stops advertising the app. Set `retired`
+ * and /app 404s like a fork with no app at all, while /app-config continues
+ * to serve and carries a `notice` telling the app to point its users back
+ * at the website.
  */
 export interface MobileApp {
     iosUrl: string
@@ -248,6 +256,19 @@ export interface MobileApp {
     /** Bundle ID surfaced via /app-config to the mobile app itself. */
     iosBundleId?: string
     androidBundleId?: string
+    /**
+     * Set once the app is no longer maintained. Stops the website
+     * advertising it (/app 404s, store links disappear) without cutting off
+     * the installed copies that still depend on /app-config.
+     *
+     * Deliberately a bare flag and not a place to put banner copy. Telling
+     * the app's remaining users anything is what `/app-announcements`
+     * already does, and that channel has the decisive advantage: the
+     * installed builds already know how to render it. A new config field
+     * would only reach a build shipped after it was added — which, for an
+     * app nobody is rebuilding, is no one.
+     */
+    retired?: boolean
 }
 
 /**
@@ -323,6 +344,16 @@ export interface SponsorPortalJiraConfig {
          */
         assetUploadUrl?: string
         /**
+         * Which room a room sponsor's sponsorship covers. Committee-assigned,
+         * so the portal only displays it — and it feeds the venue's exhibitor
+         * spreadsheet and the public site's `roomName`.
+         *
+         * The field may carry a Jira default, which would make every sponsor
+         * look assigned. Treat a value equal to `unassignedRoomValue` as "not
+         * yet decided" so the portal stays honest until someone chooses.
+         */
+        exhibitorRoom?: string
+        /**
          * Paragraph field the sponsor's quote/blurb is pushed into on every
          * portal save (sponsor-owned — the portal's value overrides Jira's).
          * Omit if the field doesn't exist; the push is skipped.
@@ -390,6 +421,17 @@ export interface SponsorPortalJiraConfig {
      * these, the portal leaves it alone rather than dragging it backwards.
      */
     assetsPendingOptionIds: string[]
+    /**
+     * The `exhibitorRoom` value meaning "no room assigned yet".
+     *
+     * Jira single-selects can carry a default, so every issue would read back
+     * as the first room whether or not anyone chose it. Naming that value here
+     * lets the portal tell "assigned" from "untouched" and stay quiet until the
+     * committee actually decides — a sponsor sent to the wrong room is worse
+     * than one told nothing yet. Omit when the field has no default, and every
+     * non-empty value counts as assigned.
+     */
+    unassignedRoomValue?: string
     /**
      * The remaining workstream status flips, each triggered by the sponsor
      * finishing the matching part of the portal:
@@ -585,6 +627,56 @@ export interface MeetTheExpertsConfig {
  * The fork's /conference/manifest.ts exports an object of this shape as
  * `conferenceManifest`.
  */
+/**
+ * Jira wiring for the public volunteer run sheet. Like the sponsor portal's
+ * config, every value here is fork-owned: the Jira site, the project, the
+ * custom field ids and the committee's label vocabulary all differ per fork,
+ * so none of it can live in core. Credentials are NOT here; they're host
+ * secrets (wrangler `JIRA_API_EMAIL` / `JIRA_API_TOKEN`).
+ */
+export interface RunsheetsJiraConfig {
+    /** Jira site, e.g. "https://dddperth.atlassian.net" */
+    baseUrl: string
+    /**
+     * JQL selecting the run sheet items to display. Written out in full
+     * rather than assembled from parts, because which issue type, time
+     * bracket or board convention marks "the run sheet" is a committee
+     * decision, not something core should presume.
+     */
+    jql: string
+    /** Custom field ids on the run sheet issue type. */
+    fields: {
+        /** Datetime field for when the item starts. */
+        startTime: string
+        /** Datetime field for when the item ends. */
+        endTime: string
+        /** Labels field naming the location(s) the item happens at. */
+        location: string
+        /** Labels field naming the volunteer team(s) responsible. */
+        team: string
+        /** URL field linking to the role instructions (a Confluence page here). */
+        roleInstructions: string
+    }
+}
+
+/**
+ * The public volunteer run sheet at /runsheets. Omit for forks without a
+ * volunteer Jira board — the route returns 404 then.
+ *
+ * The page is deliberately anonymous, so the label maps below are also the
+ * page's allowlist: the `$filter` path segment is only ever matched against
+ * these keys, and anything else is rejected rather than reaching the JQL.
+ * A label missing from these maps is still *displayed* (it falls back to the
+ * raw Jira label) — it just can't be filtered on.
+ */
+export interface RunsheetsConfig {
+    jira: RunsheetsJiraConfig
+    /** Jira "Volunteer Team" label -> display name, e.g. `'team-1': 'Team 1'`. */
+    teamLabels: Record<string, string>
+    /** Jira "Location" label -> display name, e.g. `'loc-cygnet-room': 'Cygnet Room'`. */
+    locationLabels: Record<string, string>
+}
+
 export interface ConferenceManifest {
     public: ConferenceConfigPublic
     socials: Socials
@@ -596,6 +688,8 @@ export interface ConferenceManifest {
     homepage?: HomepageContentSlots
     /** Mobile app config. Omit for forks without an app — /app returns 404 then. */
     mobileApp?: MobileApp
+    /** Public volunteer run sheet. Omit for forks without one — /runsheets returns 404 then. */
+    runsheets?: RunsheetsConfig
     /** Sponsor portal config. Omit for forks without one — /portal returns 404 then. */
     sponsorPortal?: SponsorPortalConfig
     /** Speaker portal config. Omit for forks without one — /speaker-portal returns 404 then. */

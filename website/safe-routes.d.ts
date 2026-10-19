@@ -54,6 +54,10 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/admin.sponsors.exhibitor-export.js').SearchParams>,
     },
+    "/admin/sponsors/follow-up": {
+      params: never,
+      query: ExportedQuery<import('app/routes/admin.sponsors_.follow-up.js').SearchParams>,
+    },
     "/admin/voting": {
       params: never,
       query: ExportedQuery<import('app/routes/admin.voting.js').SearchParams>,
@@ -166,6 +170,10 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/[robots.txt].js').SearchParams>,
     },
+    "/runsheets/:filter?": {
+      params: {'filter'?: string | number},
+      query: ExportedQuery<import('app/routes/_layout.runsheets.($filter).js').SearchParams>,
+    },
     "/share": {
       params: never,
       query: ExportedQuery<import('app/routes/_layout.share.js').SearchParams>,
@@ -217,6 +225,7 @@ declare module "safe-routes" {
             | 'routes/api.theme'
             | 'routes/_layout'
             | 'routes/_layout.agenda.$year.talk.$sessionId'
+            | 'routes/_layout.runsheets.($filter)'
             | 'routes/_layout.sponsors.($year)'
             | 'routes/_layout.agenda.($year)'
             | 'routes/_layout.blog._index'
@@ -235,6 +244,7 @@ declare module "safe-routes" {
             | 'routes/admin.voting-validation.stats.$runId'
             | 'routes/admin.voting-validation.stats.$runId.download'
             | 'routes/admin.voting_.agenda.$runId'
+            | 'routes/admin.sponsors_.follow-up'
             | 'routes/admin.dashboard'
             | 'routes/admin.settings'
             | 'routes/admin.speakers'

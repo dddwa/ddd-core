@@ -1,23 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import { data, Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
-import {
-    dropzoneClass,
-    FieldError,
-    fieldLabelClass,
-    inputClass,
-    PrimaryButton,
-} from '~/components/portal-form'
+import { dropzoneClass, FieldError, fieldLabelClass, inputClass, PrimaryButton } from '~/components/portal-form'
 import { PortalSavedBanner } from '~/components/portal-saved-banner'
 import { requireSponsorContact } from '~/lib/auth.server'
 import { parseFormData } from '~/lib/forms/parse-form.server'
 import { conferenceManifest } from '@conference/manifest'
 import { logisticsVisibility } from '~/lib/sponsors/logistics'
+import { logSponsorPortalEvent } from '~/lib/sponsors/log.server'
 import { nextIncompleteSection, sponsorProgress } from '~/lib/sponsors/progress'
 import {
     isProfileComplete,
     LOGO_MAX_BYTES,
     logoExtensionForContentType,
+    prefilledProfileFields,
     profileDetailsSchema,
     SOCIAL_PLATFORMS,
     socialsFromForm,
@@ -40,6 +36,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     // always pointed at whatever they still owe us.
     const sections = sponsorProgress({
         profile,
+        sponsor,
         visibility: logisticsVisibility(conferenceManifest.sponsorPortal?.jira.tierMap?.[sponsor.tier]),
         meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
         meetTheExpertsOffered: (conferenceManifest.meetTheExperts?.slots ?? []).length > 0,
@@ -48,10 +45,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return {
         issueKey: sponsor.issueKey,
         nextSection: nextIncompleteSection(sections) ?? null,
-        blurb: profile?.blurb ?? '',
-        // Prefill from the Jira-synced website if the sponsor hasn't set one.
-        websiteUrl: profile?.websiteUrl ?? sponsor.website ?? '',
-        socials: profile?.socials ?? {},
+        ...prefilledProfileFields({
+            profile,
+            jira: { quote: sponsor.jiraQuote, website: sponsor.website, socials: sponsor.jiraSocials },
+        }),
         logo: profile?.logo
             ? { filename: profile.logo.filename, uploadedAt: profile.logo.uploadedAt, size: profile.logo.size }
             : null,
@@ -90,6 +87,7 @@ async function nextSectionAfterSave(services: AppServices, sponsor: SponsorRecor
 
     const sections = sponsorProgress({
         profile,
+        sponsor,
         visibility: logisticsVisibility(conferenceManifest.sponsorPortal?.jira.tierMap?.[sponsor.tier]),
         meetTheExpertsResponded: Boolean(meetTheExpertsRegistration),
         meetTheExpertsOffered: (conferenceManifest.meetTheExperts?.slots ?? []).length > 0,
@@ -108,20 +106,41 @@ export async function action({ request, context }: Route.ActionArgs) {
     if (intent === 'save-details') {
         const parsed = parseFormData(profileDetailsSchema, formData)
         if (!parsed.ok) {
+            // Answered to the sponsor, not thrown, so nothing else would record it.
+            logSponsorPortalEvent({
+                event: 'portal.save_rejected',
+                issueKey: sponsor.issueKey,
+                form: 'profile',
+                fields: Object.keys(parsed.fieldErrors),
+            })
             return data({ intent: 'save-details' as const, fieldErrors: parsed.fieldErrors }, { status: 400 })
         }
 
-        await services.sponsors.saveDetails(
-            sponsor.issueKey,
-            {
-                blurb: parsed.data.blurb,
-                websiteUrl: parsed.data.websiteUrl,
-                socials: socialsFromForm(parsed.data),
-            },
-            user.email,
-        )
-        // Sponsor-owned data flows into Jira on every save (portal wins).
-        await services.sponsorSync.pushSponsorOwnedData(sponsor.issueKey, 'details')
+        const details = {
+            blurb: parsed.data.blurb,
+            websiteUrl: parsed.data.websiteUrl,
+            socials: socialsFromForm(parsed.data),
+        }
+        // Jira first: on failure nothing reaches D1, so the sponsor is told
+        // rather than shown a success banner over a lost answer.
+        try {
+            await services.sponsorSync.pushSponsorDetails(sponsor.issueKey, details)
+        } catch (error) {
+            logSponsorPortalEvent({
+                event: 'portal.writeback_failed',
+                issueKey: sponsor.issueKey,
+                form: 'profile',
+                error: error instanceof Error ? error.message : String(error),
+            })
+            return data(
+                {
+                    intent: 'save-details' as const,
+                    error: 'Jira is unavailable, so your changes were not saved. Please try again.',
+                },
+                { status: 502 },
+            )
+        }
+        await services.sponsors.saveDetails(sponsor.issueKey, details, user.email)
         await recordCompletionIfReady(services, sponsor)
         await services.sponsorSync.flipWorkstreamStatuses(sponsor.issueKey)
         return data({
@@ -137,12 +156,29 @@ export async function action({ request, context }: Route.ActionArgs) {
             return data({ intent: 'upload-logo' as const, error: 'Choose a file to upload' }, { status: 400 })
         }
         if (file.size > LOGO_MAX_BYTES) {
+            logSponsorPortalEvent({
+                event: 'portal.logo_rejected',
+                issueKey: sponsor.issueKey,
+                reason: 'too-large',
+                contentType: file.type,
+                size: file.size,
+            })
             return data({ intent: 'upload-logo' as const, error: 'Logo must be under 10 MB' }, { status: 400 })
         }
 
         const bytes = new Uint8Array(await file.arrayBuffer())
         const uploadError = validateLogoUpload({ contentType: file.type, size: file.size, bytes })
         if (uploadError) {
+            // The likeliest routine friction: a sponsor sending a format the
+            // portal will not take. Logged with the type so a recurring one
+            // can be answered by widening the allow-list, not by email.
+            logSponsorPortalEvent({
+                event: 'portal.logo_rejected',
+                issueKey: sponsor.issueKey,
+                reason: uploadError,
+                contentType: file.type,
+                size: file.size,
+            })
             return data({ intent: 'upload-logo' as const, error: uploadError }, { status: 400 })
         }
 
@@ -155,7 +191,7 @@ export async function action({ request, context }: Route.ActionArgs) {
             user.email,
         )
         // Re-attaches the new logo in Jira when this is a post-completion change.
-        await services.sponsorSync.pushSponsorOwnedData(sponsor.issueKey, 'logo')
+        await services.sponsorSync.attachUpdatedLogo(sponsor.issueKey)
         await recordCompletionIfReady(services, sponsor)
         await services.sponsorSync.flipWorkstreamStatuses(sponsor.issueKey)
         return data({
@@ -178,6 +214,7 @@ export default function PortalProfile() {
     const fieldErrors =
         actionData?.intent === 'save-details' && 'fieldErrors' in actionData ? actionData.fieldErrors : {}
     const detailsSaved = actionData?.intent === 'save-details' && 'saved' in actionData
+    const detailsError = actionData?.intent === 'save-details' && 'error' in actionData ? actionData.error : null
     const logoSaved = actionData?.intent === 'upload-logo' && 'saved' in actionData
     // The action recomputes this after writing, so it reflects the save the
     // sponsor just made rather than the loader's pre-save snapshot.
@@ -272,6 +309,11 @@ export default function PortalProfile() {
                 </styled.p>
 
                 {detailsSaved && <PortalSavedBanner message="Details saved." next={savedNextSection} />}
+                {detailsError && (
+                    <Box mb="4" p="3" bg="status.danger.bg" borderRadius="md" fontSize="sm" color="status.danger.fg">
+                        {detailsError}
+                    </Box>
+                )}
 
                 <Form method="post">
                     <input type="hidden" name="_action" value="save-details" />
