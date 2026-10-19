@@ -679,8 +679,100 @@ export interface RunsheetsConfig {
     jira: RunsheetsJiraConfig
     /** Jira "Volunteer Team" label -> display name, e.g. `'team-1': 'Team 1'`. */
     teamLabels: Record<string, string>
+    /**
+     * Jira "Volunteer Team" label -> an emoji shown in place of the team's name
+     * in the run sheet's Related column, e.g. `'team-1': '1️⃣'`. The name stays
+     * its accessible label and hover text. Teams without one show their name.
+     */
+    teamIcons?: Record<string, string>
     /** Jira "Location" label -> display name, e.g. `'loc-cygnet-room': 'Cygnet Room'`. */
     locationLabels: Record<string, string>
+    /**
+     * Sessionize room name -> a `locationLabels` key, e.g.
+     * `'Cygnet room (Lv 2)': 'loc-cygnet-room'`. The run sheet lists the
+     * published agenda's talks alongside the Jira items, located by their
+     * Sessionize room; this map puts them under the same location names and
+     * filter as the Jira items. An unmapped room still displays (by its
+     * Sessionize name) but can't be filtered on.
+     */
+    sessionizeRoomLocations?: Record<string, string>
+    /**
+     * `locationLabels` keys a plenum session (one the whole conference
+     * attends) is held across. Sessionize files every plenum under its first
+     * room, which is rarely the whole story — a keynote usually fills the
+     * main room with its partition walls opened.
+     */
+    plenumLocations?: string[]
+    /**
+     * Jira "Volunteer Team" label marking a placeholder for agenda sessions.
+     * Those items are left off the page (the agenda itself fills the slots);
+     * their other teams and role instructions are carried onto the sessions
+     * they overlap. Internal only: not a `teamLabels` key, so it's never shown
+     * or offered as a filter.
+     */
+    sessionTeam?: string
+    /**
+     * The Sessionize *speaker* category holding pronouns, shown beside each
+     * speaker's name in the session modal. `withheldAnswers` are answers that
+     * decline to say (e.g. "I'd rather not answer"), which show as nothing.
+     */
+    speakerPronouns?: { category: string; withheldAnswers: string[] }
+    /** Bump-in run sheet at /runsheets/bump-in. Omit and that page returns 404. */
+    bumpIn?: RunsheetsBumpInConfig
+}
+
+/**
+ * The bump-in run sheet: the committee's own bump-in items from the
+ * volunteer board, plus one generated row per exhibiting sponsor read from
+ * the sponsors board, so exhibitor arrivals don't have to be re-typed as
+ * volunteer tickets.
+ *
+ * The page is as public as /runsheets, and a sponsor issue holds contact
+ * names, phone numbers, emails, the deal value (in the summary) and private
+ * links. `sponsors.fields` is therefore the allowlist: only these field ids
+ * are ever requested from Jira, so nothing else can reach the page even by
+ * mistake. Don't add a field here without checking it is safe to publish.
+ */
+export interface RunsheetsBumpInConfig {
+    /** JQL for the committee's bump-in items on the volunteer board. Same issue type and fields as `jira`. */
+    volunteerJql: string
+    sponsors: {
+        /** JQL selecting this year's sponsor issues. */
+        jql: string
+        fields: {
+            /** Text field — the public company name. Not the issue summary, which carries the deal value. */
+            companyName: string
+            /** Single-select — sponsorship level, as shown on the sponsors page. */
+            tier: string
+            /** Single-select — the sponsor's chosen bump-in slot. */
+            bumpInSlot: string
+            /** Multi-checkbox — under-stadium (ring road) drop-off, e.g. "For Bump In". */
+            underStadiumDropOff: string
+            /** Free text — trolley or forklift needs. */
+            trolley: string
+            /** Free text — loading dock assistance needs. */
+            loadingDockAssistance: string
+            /** Free text — venue porter assistance needs. */
+            porterAssistance: string
+            /** Single-select — the room a room sponsor exhibits in. */
+            exhibitorRoom?: string
+            /** Text — the exhibitor's space number on the floor map. */
+            exhibitorSpaceNumber?: string
+        }
+        /** The `underStadiumDropOff` option meaning "needed at bump-in". */
+        underStadiumBumpInOption: string
+        /**
+         * Bump-in slot option value -> when it runs and which volunteer team
+         * meets it. A slot missing here still shows, untimed, at the end.
+         * Times are ISO datetimes with offset.
+         */
+        slots: Record<string, { start: string; end: string; team: string }>
+        /**
+         * Raw Jira tier values that exhibit. A sponsor on one of these tiers
+         * with no slot chosen yet still gets a row, so the gap is visible.
+         */
+        exhibitingTiers: string[]
+    }
 }
 
 export interface ConferenceManifest {
