@@ -1258,12 +1258,15 @@ export default function VotingAgenda() {
     const isSaving = inFlight > 0
 
     // Pull the saved values back once the queue drains, so the optimistic
-    // copies below can be retired against real server state. Guarding on
-    // revalidator.state keeps this from re-entering while a fetch is running.
+    // copies below can be retired against real server state. Only fire on the
+    // saving -> idle edge: `revalidator` is a new object on every state change,
+    // so keying on idle alone re-runs after each revalidation and loops forever.
+    const wasSaving = useRef(false)
     useEffect(() => {
-        if (!isSaving && revalidator.state === 'idle') {
+        if (wasSaving.current && !isSaving) {
             void revalidator.revalidate()
         }
+        wasSaving.current = isSaving
     }, [isSaving, revalidator])
 
     // Drop an optimistic value only once the server echoes it back. Clearing
