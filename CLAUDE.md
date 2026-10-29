@@ -133,6 +133,13 @@ The branch lives in the component because almost every href is a *runtime* value
   year-pinned `/sponsors/<year>`. Note that `/` is a tall full-page capture against a *ratio* gate, so a sponsor
   swap alone never tripped it — the seam carries its own assertion in `visual.spec.ts` rather than trusting the
   baseline to notice it applied.
+- The blog is pinned the same way: `E2E_BLOG_FIXTURES` points the MDX plugin at `website/e2e/fixtures/blog/`
+  instead of the conference's posts. It's read in `vite.config.ts` (the content compiles before the Worker
+  exists), and a `vite build` with it set throws, so fixture posts can't ship as the blog.
+- The header has its own `#header` baseline plus an overflow sweep (320–1600px, every 8px and each Panda
+  breakpoint, across every state in `HEADER_DATE_STATES` in `e2e/routes.ts`). `/` alone let header regressions
+  through, being a small share of a tall capture. A bare `1fr` grid track can't shrink below its content; use
+  `minmax(0, 1fr)`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
