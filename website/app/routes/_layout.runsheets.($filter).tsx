@@ -1,5 +1,5 @@
+import { tryConferenceTime } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { useState } from 'react'
 import {
     data,
@@ -33,7 +33,7 @@ import { compareRunsheetItems, fetchRunsheet, sessionsToRunsheetItems } from '~/
 import { requireRunsheetOpen } from '~/lib/runsheets/runsheet-availability.server'
 import { AGENDA_TEAM_FILTER, filterRunsheetItems, parseRunsheetFilters } from '~/lib/runsheets/runsheet-filters'
 import { noIndexMeta } from '~/lib/seo'
-import { getConferenceState, getConfig, getServices } from '~/remix-app-load-context'
+import { getConferenceState, getConfig, getDateTimeProvider, getServices } from '~/remix-app-load-context'
 import { styled } from '~/styled-system/jsx'
 import type { Route } from './+types/_layout.runsheets.($filter)'
 import type { loader as sessionLoader } from './api.runsheets.session.$sessionId'
@@ -103,7 +103,6 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
     const { apiEmail, apiToken, apiBaseUrl } = getConfig(context).jira
 
     const conferenceState = getConferenceState(context)
-    const { timezone } = conferenceManifest.public
     const services = getServices(context)
     const [cacheState, user] = await Promise.all([getRunsheetCacheState(services), getUser(request.headers, services)])
 
@@ -117,7 +116,6 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
             apiBaseUrl,
             cacheTtlSeconds: CACHE_TTL_SECONDS,
             cacheGeneration: cacheState.generation,
-            timezone,
         }),
         // The *published* schedule only: this page is public, so a draft
         // agenda here would announce talks early. A Sessionize outage drops
@@ -134,8 +132,8 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
     ])
 
     const sessions = schedule?.rooms.flatMap((room) => room.sessions) ?? []
-    const sessionItems = sessionsToRunsheetItems(sessions, config, { placeholders: jira.placeholders, timezone })
-    const items = [...jira.items, ...sessionItems].sort(compareRunsheetItems(timezone))
+    const sessionItems = sessionsToRunsheetItems(sessions, config, { placeholders: jira.placeholders })
+    const items = [...jira.items, ...sessionItems].sort(compareRunsheetItems())
 
     // Every team's admin-entered info links, keyed by team label. A team's
     // volunteer role id is its label minus `team-` (see VOLUNTEER_ROLES).
@@ -152,6 +150,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
     return data(
         {
             items,
+            serverNow: getDateTimeProvider(context).nowDate().toString({ timeZoneName: 'never', fractionalSecondDigits: 3 }),
             teamLinks,
             canRefresh,
             hasBumpIn: Boolean(config.bumpIn),
@@ -188,8 +187,8 @@ export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate 
  */
 function formatTime(isoDateTime: string | null): string {
     if (!isoDateTime) return '-'
-    const dateTime = DateTime.fromISO(isoDateTime, { zone: conferenceManifest.public.timezone })
-    return dateTime.isValid ? dateTime.toFormat('h:mm a') : '-'
+    const dateTime = tryConferenceTime(isoDateTime)
+    return dateTime ? dateTime.toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }) : '-'
 }
 
 /** "9:30 AM – 10:15 AM", or just the start when there's no end. */
@@ -207,13 +206,14 @@ export default function Runsheets() {
         fetchedAt,
         canRefresh,
         hasBumpIn,
+        serverNow,
     } = useLoaderData<typeof loader>()
     const [searchParams] = useSearchParams()
     // Filtered here, not in the loader, so a filter change is instant and
     // works offline. The server renders the same filter first, from the URL.
     const filters = parseRunsheetFilters(searchParams, { teamLabels, locationLabels })
     const items = filterRunsheetItems(allItems, filters)
-    const { nowIds, firstNowId } = useRunsheetNow(items)
+    const { nowIds, firstNowId } = useRunsheetNow(items, serverNow)
     const selectedTeamLinks = filters.teams.flatMap((team) =>
         teamLinks[team] ? [{ team, label: teamLabels[team] ?? team, links: teamLinks[team] }] : [],
     )
@@ -242,7 +242,6 @@ export default function Runsheets() {
                 <RunsheetFilterButton filters={filters} />
                 <RunsheetFreshness
                     fetchedAt={fetchedAt}
-                    timezone={conferenceManifest.public.timezone}
                     clearsJiraCache={canRefresh}
                 />
             </RunsheetToolbar>

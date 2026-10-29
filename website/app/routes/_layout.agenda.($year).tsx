@@ -1,5 +1,5 @@
+import { conferenceTime, Temporal } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { Fragment, useMemo, useState } from 'react'
 import {
     data,
@@ -15,7 +15,7 @@ import {
     useRouteLoaderData,
 } from 'react-router'
 import { $path } from 'safe-routes'
-import type { TypeOf, z } from 'zod'
+import type { z } from 'zod'
 import { AppLink } from '~/components/app-link'
 import { FeedbackLink, useFeedbackClock, useReviewedFeedback } from '~/components/feedback-link'
 import { SponsorOverview, SponsorSection } from '~/components/page-components/SponsorSection'
@@ -26,12 +26,12 @@ import { Button } from '~/components/ui/button'
 import type { Year, YearSponsors } from '~/lib/conference-state-client-safe'
 import { hasTalkEnded } from '~/lib/feedback/talk-ended'
 import { getYearConfig } from '~/lib/get-year-config.server'
-import { getMeetTheExpertsAgenda } from '~/lib/meet-the-experts-agenda.server'
 import type { MeetTheExpertsAgenda, MeetTheExpertsSeat } from '~/lib/meet-the-experts-agenda.server'
+import { getMeetTheExpertsAgenda } from '~/lib/meet-the-experts-agenda.server'
 import type { AgendaTalk } from '~/lib/my-agenda'
 import { getPublishedSchedule } from '~/lib/published-agenda.server'
 import { CACHE_CONTROL } from '~/lib/http.server'
-import type { gridRoomSchema, gridSmartSchema, roomSchema, timeSlotSchema } from '~/lib/sessionize.server'
+import type { gridRoomSchema, roomSchema, timeSlotSchema } from '~/lib/sessionize.server'
 import { formatDate } from '~/lib/sessionize.server'
 import { slugify } from '~/lib/slugify'
 import { useMyAgenda } from '~/lib/use-my-agenda'
@@ -72,13 +72,17 @@ export async function loader({ params, context }: Route.LoaderArgs) {
     // Held back with the rest of the agenda until it's published.
     const meetTheExperts = schedule ? await getMeetTheExpertsAgenda(context, year) : undefined
 
-    // Only the current conference's agenda can be built from: past years are
-    // an archive, and the shortlist counts are only useful while there is
-    // still a day to plan for.
-    const canPick =
+    // Only the current conference's agenda can be built from, and only until
+    // the day is over: past years are an archive, and the shortlist counts
+    // are only useful while there is still a day to plan for.
+    const hasMyAgenda =
         !!schedule &&
         conferenceYearConfig?.sessions?.kind === 'sessionize' &&
         year === getConferenceState(context).conference.year
+    const canPick = hasMyAgenda && getConferenceState(context).conferenceState !== 'conference-over'
+    // Once picking closes, the link to someone's agenda stays for those who
+    // built one; whether they did is only known in the browser.
+    const myAgendaClosed = hasMyAgenda && !canPick
     // Feedback links go away again once the window closes (the page itself is
     // cached for 5 minutes, so they can linger that long).
     const feedbackOpen =
@@ -87,7 +91,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
         getConferenceState(context).feedback === 'open'
     // Each talk's link waits until that talk has finished; the page works out
     // when that is from here, so the date overrides apply to it too.
-    const now = feedbackOpen ? getDateTimeProvider(context).nowDate().toISO() : undefined
+    const now = feedbackOpen ? getDateTimeProvider(context).nowDate().toString({ timeZoneName: 'never', fractionalSecondDigits: 3 }) : undefined
 
     return data(
         {
@@ -99,6 +103,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
             linkTalks: conferenceYearConfig?.sessions?.kind === 'sessionize',
             recordings: conferenceYearConfig?.recordings ?? {},
             canPick,
+            myAgendaClosed,
             feedbackOpen,
             now,
             meetTheExperts,
@@ -162,6 +167,7 @@ export default function Agenda() {
         linkTalks,
         recordings,
         canPick,
+        myAgendaClosed,
         feedbackOpen,
         now,
         meetTheExperts,
@@ -172,7 +178,7 @@ export default function Agenda() {
         feedbackOpen &&
         !session.isServiceSession &&
         feedbackNow !== undefined &&
-        hasTalkEnded(session.endsAt, feedbackNow, conferenceManifest.public.timezone)
+        hasTalkEnded(session.endsAt, feedbackNow)
     const availableTimeSlots = schedule?.timeSlots.map((timeSlot) => timeSlot.slotStart.replace(/:/g, ''))
 
     const sessionsById = useMemo(
@@ -282,7 +288,7 @@ export default function Agenda() {
                     {announcement}
                 </styled.div>
             ) : null}
-            {canPick ? (
+            {canPick || (myAgendaClosed && picked.length > 0) ? (
                 <Flex justifyContent="flex-end" px="1" py="2">
                     <AppLink to="/agenda/my" unstyled color="text.highlight" textDecoration="underline" fontSize="sm">
                         My agenda{picked.length ? ` (${picked.length})` : ''}
@@ -336,10 +342,8 @@ export default function Agenda() {
                     })}
 
                     {schedule.timeSlots.map((timeSlot, timeSlotIndex) => {
-                        const startTime12 = DateTime.fromISO(timeSlot.slotStart, {
-                            zone: conferenceManifest.public.timezone,
-                        })
-                            .toFormat('h:mm a')
+                        const startTime12 = Temporal.PlainTime.from(timeSlot.slotStart)
+                            .toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })
                             .toLowerCase()
                         const timeSlotSimple = timeSlot.slotStart.replace(/:/g, '')
                         const nextTimeSlot = schedule.timeSlots[timeSlotIndex + 1]
@@ -369,10 +373,8 @@ export default function Agenda() {
                                         <styled.span display={{ base: 'inline', xl: 'none' }}>
                                             {' '}
                                             -{' '}
-                                            {DateTime.fromISO(nextTimeSlot.slotStart, {
-                                                zone: conferenceManifest.public.timezone,
-                                            })
-                                                .toFormat('h:mm a')
+                                            {Temporal.PlainTime.from(nextTimeSlot.slotStart)
+                                                .toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })
                                                 .toLowerCase()}
                                         </styled.span>
                                     ) : null}
@@ -515,8 +517,8 @@ function MeetTheExperts({ grid }: { grid: MeetTheExpertsAgenda }) {
                                             mb="2"
                                             _hover={{ color: 'text.highlight' }}
                                             _focusVisible={{
-                                                outline: '[3px solid token(colors.interactive.focus)]',
-                                                outlineOffset: '[2px]',
+                                                outline: 'focus',
+                                                outlineOffset: '0.5',
                                             }}
                                         >
                                             {seat.displayName}
@@ -617,8 +619,8 @@ function RoomTitle({ room, sponsors }: { room: z.infer<typeof gridRoomSchema>; s
                         src={roomSponsor.logoUrlDarkMode}
                         alt={roomSponsor.name}
                         title={roomSponsor.name}
-                        maxWidth="[110px]"
-                        maxHeight="[28px]"
+                        maxWidth="27.5"
+                        maxHeight="7"
                         mt="1"
                         display="inline-block"
                         objectFit="contain"
@@ -671,12 +673,12 @@ function RoomTimeSlot({
         ?.sessions.find((session) => session.id === room.session.id)
     const endsAtTime = fullSession?.endsAt ? fullSession.endsAt.replace(/\d{4}-\d{2}-\d{2}T/, '') : null
     const endTime12 = fullSession?.endsAt
-        ? DateTime.fromISO(fullSession.endsAt, { zone: conferenceManifest.public.timezone })
-              .toFormat('h:mm a')
+        ? conferenceTime(fullSession.endsAt)
+              .toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })
               .toLowerCase()
         : nextTimeSlotIso
-          ? DateTime.fromISO(nextTimeSlotIso, { zone: conferenceManifest.public.timezone })
-                .toFormat('h:mm a')
+          ? Temporal.PlainTime.from(nextTimeSlotIso)
+                .toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })
                 .toLowerCase()
           : undefined
 
@@ -875,7 +877,7 @@ function RoomTimeSlot({
 function talkTimeRange(startsAt: string | null, endsAt: string | null) {
     if (!startsAt || !endsAt) return null
     const format = (iso: string) =>
-        DateTime.fromISO(iso, { zone: conferenceManifest.public.timezone }).toFormat('h:mm a').toLowerCase()
+        conferenceTime(iso).toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
     return `${format(startsAt)} - ${format(endsAt)}`
 }
 

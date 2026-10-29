@@ -1,6 +1,6 @@
+import type { Temporal } from '~/lib/dates/temporal'
+import { conferenceDayStart, conferenceTime } from '~/lib/dates/temporal'
 import { data, useLoaderData } from 'react-router'
-
-import { DateTime } from 'luxon'
 import type { PropsWithChildren } from 'react'
 import { ImportantDates } from '~/components/page-components/important-dates'
 import { Button } from '~/components/ui/button'
@@ -96,7 +96,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 
     return data(
         {
-            currentDate: getDateTimeProvider(context).nowDate().toISO(),
+            currentDate: getDateTimeProvider(context).nowDate().toString({ timeZoneName: 'never', fractionalSecondDigits: 3 }),
             currentPath: contentSlug,
             siteUrl,
             frontmatter: post.frontmatter,
@@ -135,8 +135,7 @@ export function meta(args: Route.MetaArgs) {
     }
 
     // Generate a description if summary isn't available
-    const description =
-        frontmatter.summary || `${frontmatter.title} - ${conferenceManifest.public.description}`
+    const description = frontmatter.summary || `${frontmatter.title} - ${conferenceManifest.public.description}`
 
     // Generate keywords based on the content slug and title
     const baseKeywords = `${conferenceManifest.public.name}, Conference, Software Development`
@@ -182,6 +181,7 @@ export function meta(args: Route.MetaArgs) {
         { name: 'twitter:image', content: socialImageUrl },
         { name: 'robots', content: 'index, follow' },
         { name: 'canonical', content: canonicalUrl },
+        // eslint-disable-next-line dates/use-date-time-provider -- Publication metadata uses real time, independently of conference overrides.
         { name: 'article:published_time', content: new Date().toISOString() },
     ]
 }
@@ -222,7 +222,7 @@ export default function WebsiteContentPage() {
                     currentPath={currentPath}
                     frontmatter={frontmatter}
                     conferenceState={conferenceState}
-                    currentDate={DateTime.fromISO(currentDate, { zone: conferenceManifest.public.timezone })}
+                    currentDate={conferenceTime(currentDate)}
                     importantDates={importantDates}
                 >
                     <Component sponsors={sponsorPageData} />
@@ -240,14 +240,18 @@ function ContentPageWithSidebar({
     currentDate,
     children,
 }: PropsWithChildren<
-    { currentDate: DateTime } & Pick<
+    { currentDate: Temporal.ZonedDateTime } & Pick<
         Awaited<ReturnType<typeof useLoaderData<typeof loader>>>,
         'conferenceState' | 'frontmatter' | 'currentPath' | 'importantDates'
     >
 >) {
+    // `minmax(0, 1fr)`, not `1fr`: a bare `1fr` track can't shrink below its
+    // content's min-content width, so one unwrappable code block or table
+    // stretched the column past the viewport and the page scrolled sideways on
+    // phones. Caught by the overflow sweep in e2e/visual.spec.ts.
     return (
-        <Grid gridTemplateColumns={{ base: '1fr', lg: '1fr auto' }}>
-            <styled.div id="content" marginX={{ base: "6", lg: "0" }}>
+        <Grid gridTemplateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) auto' }}>
+            <styled.div id="content" marginX={{ base: '6', lg: '0' }}>
                 <styled.h1 fontSize="3xl">{frontmatter.title}</styled.h1>
                 <Box className={prose({ size: 'lg' })}>{children}</Box>
             </styled.div>
@@ -297,21 +301,18 @@ export const EventDetailsSummary = ({ className, conferenceState, currentPath }:
                         {conferenceState.conferenceState === 'before-conference' ? 'Next event' : 'Previous event'}
                     </small>
                     <time>
-                        {DateTime.fromISO(relevantDate, { zone: conferenceManifest.public.timezone }).toLocaleString(
-                            DateTime.DATE_HUGE,
-                            { locale: 'en-AU' },
-                        )}
+                        {conferenceDayStart(relevantDate).toLocaleString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </time>
                 </h2>
             ) : null}
             <ul
                 className={css({
-                    paddingLeft: "5",
-                    marginBottom: "6",
-                    marginLeft: "6",
+                    paddingLeft: '5',
+                    marginBottom: '6',
+                    marginLeft: '6',
 
                     '&li': {
-                        paddingLeft: "2",
+                        paddingLeft: '2',
                         fill: 'brand.secondary',
                         listStyleImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M0 0h6v6H0z'/%3E%3C/svg%3E")`,
                         listStyleType: 'none',

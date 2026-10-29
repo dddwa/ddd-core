@@ -1,3 +1,4 @@
+import type { Temporal } from 'temporal-polyfill'
 /**
  * The ConferenceManifest is the contract between core and a fork.
  *
@@ -15,7 +16,6 @@
  * making them optional + having a sensible default in core.
  */
 
-import type { DateTime } from 'luxon'
 import type { ConferenceConfig, MinorSponsorTier } from './types.ts'
 
 /**
@@ -75,6 +75,15 @@ export interface ConferenceFeatures {
      * workshops in a given year can set this to drop the section entirely.
      */
     hideWorkshops?: boolean
+
+    /**
+     * Show the header's Venue link *instead of* About, and only from a week
+     * before conference day until the day ends. The rest of the year the
+     * header shows About. Off by default: the venue link then sits beside
+     * About whenever a venue is published. For forks whose header is short
+     * of room, and whose venue only matters to people about to attend.
+     */
+    venueReplacesAboutNearConference?: boolean
 
     /**
      * Give each minor sponsor tier (community, coffee cart, quiet room,
@@ -482,9 +491,9 @@ export interface SponsorPortalJiraConfig {
 }
 
 /**
- * Sponsor self-service portal. When set, /portal routes come alive, sponsor
+ * Sponsor self-service portal. When set, /sponsor-portal routes come alive, sponsor
  * contacts can log in via the same magic-link flow as admins, and sponsor
- * records sync from Jira. Omit for forks without a sponsor portal — /portal
+ * records sync from Jira. Omit for forks without a sponsor portal — /sponsor-portal
  * returns 404 and the sync never runs.
  */
 /**
@@ -580,13 +589,13 @@ export interface SpeakerPortalConfig {
 export interface SpeakerTrainingSessionConfig {
     id: string
     title: string
-    dateTime: DateTime
-    endDateTime: DateTime
+    dateTime: Temporal.ZonedDateTime
+    endDateTime: Temporal.ZonedDateTime
 }
 
 export interface SpeakerDinnerConfig {
-    dateTime: DateTime
-    endDateTime: DateTime
+    dateTime: Temporal.ZonedDateTime
+    endDateTime: Temporal.ZonedDateTime
     location?: string
 }
 
@@ -597,7 +606,7 @@ export interface SpeakerDinnerConfig {
  * types, matching `SpeakerTrainingSessionConfig.id`. Omit an entry to show
  * that item undated.
  */
-export type SpeakerChecklistDueDates = Record<string, DateTime>
+export type SpeakerChecklistDueDates = Record<string, Temporal.ZonedDateTime>
 
 export interface SpeakerPortalChecklistConfig {
     /** When each checklist item is due. Omit to show every item undated. */
@@ -788,13 +797,27 @@ export interface ConferenceManifest {
     mobileApp?: MobileApp
     /** Public volunteer run sheet. Omit for forks without one — /runsheets returns 404 then. */
     runsheets?: RunsheetsConfig
-    /** Sponsor portal config. Omit for forks without one — /portal returns 404 then. */
+    /** Sponsor portal config. Omit for forks without one — /sponsor-portal returns 404 then. */
     sponsorPortal?: SponsorPortalConfig
     /** Speaker portal config. Omit for forks without one — /speaker-portal returns 404 then. */
     speakerPortal?: SpeakerPortalConfig
     /** Meet-the-Experts time slots — shared by the speaker and sponsor
      * portals. Omit to hide the feature entirely. */
     meetTheExperts?: MeetTheExpertsConfig
+    /** Blog config. Optional — the blog works without it. */
+    blog?: BlogConfig
+}
+
+export interface BlogConfig {
+    /**
+     * Hostnames the blog used to be served from (e.g. a Medium custom domain
+     * like `blog.example.com`), now pointed at this Worker. A request for one
+     * of them is permanently redirected to this site's `/blog`: to the post
+     * whose `legacyPaths` frontmatter lists the requested path, or to the
+     * blog index otherwise. The host is read from `X-Forwarded-Host` /
+     * `Forwarded` first, so it still matches behind a CDN or proxy.
+     */
+    legacyHosts?: string[]
 }
 
 /**

@@ -18,7 +18,7 @@ import {
 } from '~/lib/sponsors/progress'
 import { getServices } from '~/remix-app-load-context'
 import { Box, Flex, styled } from '~/styled-system/jsx'
-import type { Route } from './+types/portal._index'
+import type { Route } from './+types/sponsor-portal._index'
 
 /** Maps the sponsor's raw Jira tier through the manifest, so section
  * visibility keys off the stable category rather than the Jira option label. */
@@ -30,12 +30,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const { sponsor } = await requireSponsorContact(request, context)
     const services = getServices(context)
 
-    const [profile, contacts, meetTheExpertsRegistration, deliverables, { meetTheExpertsSlots: slots }] = await Promise.all([
+    const [profile, contacts, meetTheExpertsRegistration, deliverables, { meetTheExpertsSlots: slots }, feedback] = await Promise.all([
         services.sponsors.getProfile(sponsor.issueKey),
         services.sponsors.getContactEmails(sponsor.issueKey),
         services.meetTheExperts.getRegistration('sponsor', sponsor.issueKey),
         services.sponsorSync.getSponsorDeliverables(sponsor.issueKey),
         loadSpeakerSettings(context),
+        services.sponsorFeedback.listForSponsor(conferenceManifest.sponsorPortal?.year ?? '', sponsor.issueKey),
     ])
 
     const sections = sponsorProgress({
@@ -62,6 +63,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         meetTheExpertsBioUseDefault: meetTheExpertsRegistration?.bioUseDefault ?? true,
         meetTheExpertsBioCustomText: meetTheExpertsRegistration?.bioCustomText,
         blurb: profile?.blurb,
+        feedbackCount: feedback.length,
     }
 }
 
@@ -103,6 +105,7 @@ export default function PortalDashboard() {
         meetTheExpertsBioUseDefault,
         meetTheExpertsBioCustomText,
         blurb,
+        feedbackCount,
     } = useLoaderData<typeof loader>()
     const actionData = useActionData<typeof action>()
     const [meetTheExpertsOpen, setMeetTheExpertsOpen] = useState(false)
@@ -140,7 +143,7 @@ export default function PortalDashboard() {
                         <styled.p mt="1">
                             Head to{' '}
                             <AppLink
-                                to={nextSection?.href ?? '/portal/profile'}
+                                to={nextSection?.href ?? '/sponsor-portal/profile'}
                                 color="status.info.fg"
                                 unstyled
                                 textDecoration="underline"
@@ -165,7 +168,7 @@ export default function PortalDashboard() {
                             <styled.p fontSize="sm" color="admin.600" mb="3">
                                 Based on your sponsorship level, these are the assets we'll need. Your website logo and
                                 blurb go in{' '}
-                                <AppLink to="/portal/profile" unstyled textDecoration="underline" color="admin.900">
+                                <AppLink to="/sponsor-portal/profile" unstyled textDecoration="underline" color="admin.900">
                                     Company profile
                                 </AppLink>
                                 {deliverables.assetUploadUrl
@@ -323,6 +326,35 @@ export default function PortalDashboard() {
                     </Flex>
                 </AdminCard>
             )}
+
+            <AdminCard>
+                <styled.h2 fontSize="xl" fontWeight="semibold" mb="2">
+                    Your feedback
+                </styled.h2>
+                <Flex align="center" justify="space-between" gap="4" flexWrap="wrap">
+                    <styled.p fontSize="sm" color="admin.600">
+                        {feedbackCount > 0
+                            ? `You've shared feedback ${feedbackCount === 1 ? 'once' : `${feedbackCount} times`} — thank you. You can edit it or add more.`
+                            : 'Tell us how sponsoring went, and what would make it more valuable for you next time.'}
+                    </styled.p>
+                    <AppLink
+                        to="/sponsor-portal/feedback"
+                        unstyled
+                        display="inline-block"
+                        bg="admin.900"
+                        color="white"
+                        py="2"
+                        px="4"
+                        borderRadius="md"
+                        fontSize="sm"
+                        fontWeight="semibold"
+                        textDecoration="none"
+                        _hover={{ bg: 'admin.800' }}
+                    >
+                        {feedbackCount > 0 ? 'View your feedback' : 'Share feedback'}
+                    </AppLink>
+                </Flex>
+            </AdminCard>
 
             <AdminCard>
                 <styled.h2 fontSize="xl" fontWeight="semibold" mb="2">

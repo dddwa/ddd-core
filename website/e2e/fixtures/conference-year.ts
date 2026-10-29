@@ -15,17 +15,14 @@
  * — and every visual baseline of `/` — should keep rendering the real current
  * conference. See `app/lib/e2e-fixture-conference.server.ts` for the guards.
  */
-import { DateTime } from 'luxon'
 import type { ConferenceConfig, ConferenceYear, Year } from '@ddd/conference-config'
 import { conferenceManifest } from '@conference/manifest'
+import { conferenceTime } from '../../app/lib/dates/temporal'
 import { FIXTURE_DATE } from './sessionize/model'
 
 export const FIXTURE_CONFERENCE_COOKIE = '__e2eFixtureConference'
 
 export const FIXTURE_YEAR = FIXTURE_DATE.slice(0, 4) as Year
-
-const zone = conferenceManifest.public.timezone
-const conferenceDate = DateTime.fromISO(`${FIXTURE_DATE}T08:00:00`, { zone })
 
 const fixtureConference: ConferenceYear = {
     kind: 'conference',
@@ -40,12 +37,18 @@ const fixtureConference: ConferenceYear = {
         allSessionsEndpoint: 'https://sessionize.com/api/v2/e2e-fixture-conference',
         underrepresentedGroupsQuestionId: undefined,
     },
-    conferenceDate,
-    agendaPublishedDateTime: conferenceDate.minus({ weeks: 4 }),
+    get conferenceDate() {
+        return conferenceTime(`${FIXTURE_DATE}T08:00:00`)
+    },
+    get agendaPublishedDateTime() {
+        return conferenceTime(`${FIXTURE_DATE}T08:00:00`).subtract({ weeks: 4 })
+    },
     cfpDates: undefined,
     talkVotingDates: undefined,
     ticketReleases: [],
-    feedbackOpenUntilDateTime: conferenceDate.plus({ days: 1 }).endOf('day'),
+    get feedbackOpenUntilDateTime() {
+        return conferenceTime(`${FIXTURE_DATE}T23:59:59`).add({ days: 1 })
+    },
     ticketInfo: undefined,
     sponsors: {},
 }

@@ -58,7 +58,7 @@ nx graph                           # workspace dependency graph
     - `app/theme/` — token primitives (colors, durations, shadows, recipes)
     - `vite-plugins/`, `panda.config.ts`, `vite.config.ts` — build pipeline
     - `tsconfig.json` — defines `@conference/*` path aliases (pointing at `../conference-stub/` here; forks override these to point at their own `/conference/`)
-- **`/libs/conference-config`** — types-only shared package (`@ddd/conference-config`). The manifest contract every conference satisfies.
+- **`/libs/conference-config`** — shared manifest types and Temporal constructors (`@ddd/conference-config`). The manifest contract every conference satisfies.
 - **`/conference-stub`** — working sample conference. Two jobs: (1) lets `ddd-core` build standalone; (2) is the seed that `/new-conference` copies into a new fork's `/conference/`.
 
 ## Working with the fork ecosystem
@@ -72,6 +72,8 @@ Three Claude Code skills are bundled in `.claude/skills/`:
 Read each skill's `SKILL.md` before changes that affect the cross-layer contract (manifest shape, theme shape, wrangler shape, path aliases). Anything you break in the contract will break every existing fork on their next `/core-pull`.
 
 ## Key application patterns
+
+Before adding or reviewing dates, clocks, deadlines, date inputs, formatting, calendars, or time-dependent tests, read [Date and time patterns](docs/date-time.md).
 
 1. **Routing**: React Router v7 file-based routing in `website/app/routes/`. Layout routes use `_layout` prefix; dynamic segments use `$param` syntax.
 2. **Conference data**: Year-based. Each year config lives in the fork's `conference/config/years/`. The stub mirrors the same shape.
@@ -131,6 +133,13 @@ The branch lives in the component because almost every href is a *runtime* value
   year-pinned `/sponsors/<year>`. Note that `/` is a tall full-page capture against a *ratio* gate, so a sponsor
   swap alone never tripped it — the seam carries its own assertion in `visual.spec.ts` rather than trusting the
   baseline to notice it applied.
+- The blog is pinned the same way: `E2E_BLOG_FIXTURES` points the MDX plugin at `website/e2e/fixtures/blog/`
+  instead of the conference's posts. It's read in `vite.config.ts` (the content compiles before the Worker
+  exists), and a `vite build` with it set throws, so fixture posts can't ship as the blog.
+- The header has its own `#header` baseline plus an overflow sweep (320–1600px, every 8px and each Panda
+  breakpoint, across every state in `HEADER_DATE_STATES` in `e2e/routes.ts`). `/` alone let header regressions
+  through, being a small share of a tall capture. A bare `1fr` grid track can't shrink below its content; use
+  `minmax(0, 1fr)`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->

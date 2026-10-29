@@ -1,5 +1,4 @@
-import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
+import { conferenceInstant } from '~/lib/dates/temporal'
 import { data, useLoaderData } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
 import { AdminLayout } from '~/components/admin-layout'
@@ -16,7 +15,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const year = resolveFeedbackYear(context, new URL(request.url).searchParams.get('year'))
     const report = await loadFeedbackReport(context, year)
     const submitted = (seconds: number) =>
-        DateTime.fromSeconds(seconds, { zone: conferenceManifest.public.timezone }).toFormat('d MMM, h:mm a')
+        conferenceInstant(seconds * 1000).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })
 
     return data({
         year,

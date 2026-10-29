@@ -1,5 +1,4 @@
-import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
+import { conferenceTime } from '~/lib/dates/temporal'
 import { useEffect, useRef, useState } from 'react'
 import { Form, useActionData, useFetcher, useLoaderData, useNavigation, useRevalidator } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
@@ -96,6 +95,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         // offer it for resume once it stops looking actively driven, and once
         // it's been dead for long enough stop letting it disable Start.
         const runningRun = mappedRuns.find((run) => run.status === 'running')
+        // eslint-disable-next-line dates/use-date-time-provider -- Worker heartbeat staleness must follow real time, independently of conference overrides.
         const msSinceUpdate = runningRun ? Date.now() - new Date(runningRun.lastUpdatedAt).getTime() : 0
 
         validationRuns = {
@@ -377,11 +377,7 @@ export default function AdminVoting() {
                                 Closes
                             </styled.p>
                             <styled.p fontSize="lg" fontWeight="medium">
-                                {DateTime.fromISO(conferenceState.talkVoting.closes, {
-                                    zone: conferenceManifest.public.timezone,
-                                }).toLocaleString(DateTime.DATETIME_SHORT, {
-                                    locale: 'en-AU',
-                                })}
+                                {conferenceTime(conferenceState.talkVoting.closes).toLocaleString('en-AU', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                             </styled.p>
                         </Box>
                     )}
@@ -393,11 +389,7 @@ export default function AdminVoting() {
                                     Opens
                                 </styled.p>
                                 <styled.p fontSize="lg" fontWeight="medium">
-                                    {DateTime.fromISO(conferenceState.talkVoting.opens, {
-                                        zone: conferenceManifest.public.timezone,
-                                    }).toLocaleString(DateTime.DATETIME_SHORT, {
-                                        locale: 'en-AU',
-                                    })}
+                                    {conferenceTime(conferenceState.talkVoting.opens).toLocaleString('en-AU', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                 </styled.p>
                             </Box>
                             <Box flex="1">
@@ -405,11 +397,7 @@ export default function AdminVoting() {
                                     Closes
                                 </styled.p>
                                 <styled.p fontSize="lg" fontWeight="medium">
-                                    {DateTime.fromISO(conferenceState.talkVoting.closes, {
-                                        zone: conferenceManifest.public.timezone,
-                                    }).toLocaleString(DateTime.DATETIME_SHORT, {
-                                        locale: 'en-AU',
-                                    })}
+                                    {conferenceTime(conferenceState.talkVoting.closes).toLocaleString('en-AU', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                 </styled.p>
                             </Box>
                         </>
@@ -667,11 +655,7 @@ export default function AdminVoting() {
                                     {validationRuns.runs.map((run) => (
                                         <tr key={run.runId}>
                                             <styled.td p="2" border="admin-subtle">
-                                                {DateTime.fromISO(run.startedAt, {
-                                                    zone: conferenceManifest.public.timezone,
-                                                }).toLocaleString(DateTime.DATETIME_SHORT, {
-                                                    locale: 'en-AU',
-                                                })}
+                                                {conferenceTime(run.startedAt).toLocaleString('en-AU', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                             </styled.td>
                                             <styled.td p="2" border="admin-subtle">
                                                 <styled.span

@@ -1,5 +1,5 @@
+import { Temporal } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { useEffect, useRef, useState } from 'react'
 import { data, useFetcher, useLoaderData } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
@@ -20,7 +20,7 @@ import type { Route } from './+types/admin.volunteers'
 
 /** "09:30:00" → "9:30 am". */
 function formatTime(time: string) {
-    return DateTime.fromFormat(time, 'HH:mm:ss').toFormat('h:mm a').toLowerCase()
+    return Temporal.PlainTime.from(time).toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {

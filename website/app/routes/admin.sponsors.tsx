@@ -1,5 +1,5 @@
+import { conferenceInstant } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { data, Form, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
 import { AdminLayout } from '~/components/admin-layout'
@@ -33,6 +33,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const tokenExpiry = tokenExpiresAt
         ? {
               expiresOn: new Date(tokenExpiresAt).toISOString().slice(0, 10),
+              // eslint-disable-next-line dates/use-date-time-provider -- External token expiry must follow real time, independently of conference overrides.
               daysLeft: Math.ceil((tokenExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)),
           }
         : null
@@ -88,9 +89,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 function formatRunTime(unixSeconds: number, timezone: string): string {
-    return DateTime.fromSeconds(unixSeconds, { zone: timezone }).toLocaleString(DateTime.DATETIME_SHORT, {
-        locale: 'en-AU',
-    })
+    return conferenceInstant(unixSeconds * 1000).toLocaleString('en-AU', { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
 export default function AdminSponsors() {
@@ -138,6 +137,34 @@ export default function AdminSponsors() {
                 </Box>
             )}
             <AdminCard>
+                <styled.h2 fontSize="xl" fontWeight="semibold" mb="4">
+                    Sponsor tools
+                </styled.h2>
+                <Flex gap="2" align="center" flexWrap="wrap">
+                    <Button asChild>
+                        <AppLink unstyled to="/admin/sponsors/follow-up">
+                            Follow-up list
+                        </AppLink>
+                    </Button>
+                    <Button asChild>
+                        <AppLink unstyled to="/admin/sponsors/feedback">
+                            Sponsor feedback
+                        </AppLink>
+                    </Button>
+                    <Button
+                        asChild
+                        variant="outline"
+                        color="admin.900"
+                        borderColor="admin.400"
+                        bg="white"
+                        _hover={{ bg: 'admin.100' }}
+                    >
+                        <a href="/admin/sponsors/exhibitor-export">Export exhibitor list</a>
+                    </Button>
+                </Flex>
+            </AdminCard>
+
+            <AdminCard>
                 <Flex justify="space-between" align="center" flexWrap="wrap" gap="4" mb="4">
                     <Box>
                         <styled.h2 fontSize="xl" fontWeight="semibold">
@@ -159,29 +186,12 @@ export default function AdminSponsors() {
                             )}
                         </styled.p>
                     </Box>
-                    <Flex gap="2" align="center">
-                        <Button asChild>
-                            <AppLink unstyled to="/admin/sponsors/follow-up">
-                                Follow-up list
-                            </AppLink>
+                    <Form method="post">
+                        <input type="hidden" name="_action" value="sync-now" />
+                        <Button type="submit" disabled={isSyncing || !syncAvailable}>
+                            {isSyncing ? 'Syncing…' : 'Sync now'}
                         </Button>
-                        <Button
-                            asChild
-                            variant="outline"
-                            color="admin.900"
-                            borderColor="admin.400"
-                            bg="white"
-                            _hover={{ bg: 'admin.100' }}
-                        >
-                            <a href="/admin/sponsors/exhibitor-export">Export exhibitor list</a>
-                        </Button>
-                        <Form method="post">
-                            <input type="hidden" name="_action" value="sync-now" />
-                            <Button type="submit" disabled={isSyncing || !syncAvailable}>
-                                {isSyncing ? 'Syncing…' : 'Sync now'}
-                            </Button>
-                        </Form>
-                    </Flex>
+                    </Form>
                 </Flex>
 
                 {!syncAvailable && (
@@ -252,7 +262,7 @@ export default function AdminSponsors() {
                                         <styled.td py="2" pr="4">
                                             {sponsor.hasLogo ? (
                                                 <styled.a
-                                                    href={`/portal/logo/${sponsor.issueKey}?download=1`}
+                                                    href={`/sponsor-portal/logo/${sponsor.issueKey}?download=1`}
                                                     textDecoration="underline"
                                                 >
                                                     Download

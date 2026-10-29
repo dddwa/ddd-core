@@ -1,5 +1,5 @@
+import { conferenceTime } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { useMemo, useState } from 'react'
 import { data, useLoaderData } from 'react-router'
 import { $path } from 'safe-routes'
@@ -24,9 +24,11 @@ import type { Route } from './+types/_layout.agenda.my'
  */
 export async function loader({ context }: Route.LoaderArgs) {
     const year = getConferenceState(context).conference.year
+    // Picks made before the day still show, but no new ones can be made.
+    const closed = getConferenceState(context).conferenceState === 'conference-over'
     const schedule = await getPublishedSchedule(context, year)
     const timeOf = (iso: string) =>
-        DateTime.fromISO(iso, { zone: conferenceManifest.public.timezone }).toFormat('h:mm a').toLowerCase()
+        conferenceTime(iso).toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()
 
     const talks = schedule
         ? scheduleTalks(schedule).flatMap((talk) =>
@@ -46,14 +48,14 @@ export async function loader({ context }: Route.LoaderArgs) {
           )
         : []
 
-    return data({ year, published: !!schedule, talks }, { headers: { 'Cache-Control': CACHE_CONTROL.schedule } })
+    return data({ year, published: !!schedule, closed, talks }, { headers: { 'Cache-Control': CACHE_CONTROL.schedule } })
 }
 
 // Personal, and empty to a crawler anyway: the picks are client-side.
 export const meta = () => [...noIndexMeta(), { title: `My agenda | ${conferenceManifest.public.name}` }]
 
 export default function MyAgenda() {
-    const { year, published, talks } = useLoaderData<typeof loader>()
+    const { year, published, closed, talks } = useLoaderData<typeof loader>()
     const hydrated = useHydrated()
 
     const talksById = useMemo(() => new Map(talks.map((talk) => [talk.id, talk])), [talks])
@@ -76,7 +78,7 @@ export default function MyAgenda() {
 
     return (
         <PageLayout>
-            <Box maxWidth="[800px]" mx="auto" p="4" color="text.secondary">
+            <Box maxWidth="200" mx="auto" p="4" color="text.secondary">
                 <styled.h1 fontSize="3xl" fontWeight="semibold" color="text.primary" mb="2">
                     My agenda
                 </styled.h1>
@@ -98,7 +100,16 @@ export default function MyAgenda() {
                             this browser only, so picks made on another device won&apos;t show here.
                         </styled.p>
 
-                        {pickedTalks.length === 0 ? (
+                        {pickedTalks.length === 0 && closed ? (
+                            <p>
+                                {conferenceManifest.public.name} {year} is over, and you didn&apos;t pick any talks
+                                in this browser.{' '}
+                                <AppLink to={agendaLink} unstyled color="text.highlight" textDecoration="underline">
+                                    Browse the agenda
+                                </AppLink>{' '}
+                                to see what was on.
+                            </p>
+                        ) : pickedTalks.length === 0 ? (
                             <p>
                                 You haven&apos;t picked any talks yet.{' '}
                                 <AppLink to={agendaLink} unstyled color="text.highlight" textDecoration="underline">

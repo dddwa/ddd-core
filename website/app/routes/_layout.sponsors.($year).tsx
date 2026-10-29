@@ -2,6 +2,7 @@ import { conferenceManifest } from '@conference/manifest'
 import type { ConferenceConfig } from '@ddd/conference-config'
 import { data, redirect, useLoaderData } from 'react-router'
 import { $path } from 'safe-routes'
+import { AppLink } from '~/components/app-link'
 import { SponsorOverview, SponsorSection } from '~/components/page-components/SponsorSection'
 import { PageLayout } from '~/components/page-layout'
 import type { Year, YearSponsors } from '~/lib/conference-state-client-safe'
@@ -126,10 +127,30 @@ export default function Sponsors() {
                 <styled.h1 fontSize="5xl" textAlign="center" color="text.primary" mb="8" mt="8">
                     {conferenceManifest.public.name} {year} Sponsors
                 </styled.h1>
-                <styled.p fontSize="lg" textAlign="center" color="text.secondary" mb="8" maxWidth="[800px]" mx="auto">
+                <styled.p fontSize="lg" textAlign="center" color="text.secondary" mb="8" maxWidth="200" mx="auto">
                     We are grateful to all the sponsors who have supported {conferenceManifest.public.name} over the
                     years. Their contribution makes it possible for us to run this community-driven conference.
                 </styled.p>
+
+                {isLatestConference ? (
+                    <Box textAlign="center" mb="10">
+                        <AppLink
+                            to="/sponsorship"
+                            unstyled
+                            display="inline-flex"
+                            alignItems="center"
+                            bgColor="brand.primary"
+                            color="text.on-brand"
+                            fontWeight="semibold"
+                            paddingX="6"
+                            paddingY="3"
+                            rounded="md"
+                            _hover={{ bgColor: 'brand.secondary' }}
+                        >
+                            Sponsor {conferenceManifest.public.name}
+                        </AppLink>
+                    </Box>
+                ) : null}
 
                 {conferenceManifest.public.features?.sponsorOverview ? <SponsorOverview sponsors={sponsors} /> : null}
 
@@ -147,7 +168,7 @@ function BecomeSponsorCta({ year }: { year: Year }) {
     return (
         <Box
             mx="auto"
-            maxWidth="[720px]"
+            maxWidth="180"
             bgColor="surface.elevated"
             borderWidth="1px"
             borderColor="border.default"

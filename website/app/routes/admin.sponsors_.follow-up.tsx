@@ -1,5 +1,5 @@
+import { conferenceInstant } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { data, useLoaderData } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
 import { AdminLayout } from '~/components/admin-layout'
@@ -61,7 +61,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
     const emailContext = {
         conferenceName: conferenceManifest.public.name,
-        portalUrl: `${new URL(request.url).origin}/portal`,
+        portalUrl: `${new URL(request.url).origin}/sponsor-portal`,
         senderName: user.name || undefined,
     }
 
@@ -103,9 +103,8 @@ function summarise(rows: FollowUpRow[]) {
 }
 
 function formatDate(unixSeconds: number): string {
-    return DateTime.fromSeconds(unixSeconds, { zone: conferenceManifest.public.timezone }).toLocaleString(
-        { day: 'numeric', month: 'short' },
-        { locale: 'en-AU' },
+    return conferenceInstant(unixSeconds * 1000).toLocaleString(
+        'en-AU', { day: 'numeric', month: 'short' },
     )
 }
 

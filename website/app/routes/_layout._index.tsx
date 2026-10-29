@@ -1,7 +1,6 @@
-import { DateTime } from 'luxon'
+import { conferenceTime } from '~/lib/dates/temporal'
 import type { HeadersFunction } from 'react-router'
 import { data, useLoaderData } from 'react-router'
-import { conferenceManifest } from '@conference/manifest'
 import { calculateImportantDates } from '~/lib/calculate-important-dates.server'
 import { getYearConfig } from '~/lib/get-year-config.server'
 import { CACHE_CONTROL } from '~/lib/http.server'
@@ -27,7 +26,7 @@ export async function loader({ context }: Route.LoaderArgs) {
 
     return data(
         {
-            currentDate: getDateTimeProvider(context).nowDate().toISO(),
+            currentDate: getDateTimeProvider(context).nowDate().toString({ timeZoneName: 'never', fractionalSecondDigits: 3 }),
             conferenceDate: getConferenceState(context).conference.date,
             importantDates,
             heroSponsors,
@@ -46,7 +45,7 @@ export default function Index() {
 
     return (
         <Hero
-            currentDate={DateTime.fromISO(currentDate, { zone: conferenceManifest.public.timezone })}
+            currentDate={conferenceTime(currentDate)}
             conferenceDate={conferenceDate}
             importantDates={importantDates}
             sponsors={heroSponsors}

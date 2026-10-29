@@ -78,6 +78,10 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/admin.sponsors.exhibitor-export.js').SearchParams>,
     },
+    "/admin/sponsors/feedback": {
+      params: never,
+      query: ExportedQuery<import('app/routes/admin.sponsors_.feedback.js').SearchParams>,
+    },
     "/admin/sponsors/follow-up": {
       params: never,
       query: ExportedQuery<import('app/routes/admin.sponsors_.follow-up.js').SearchParams>,
@@ -210,21 +214,9 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/_layout.feedback.js').SearchParams>,
     },
-    "/portal": {
-      params: never,
-      query: ExportedQuery<import('app/routes/portal._index.js').SearchParams>,
-    },
-    "/portal/logistics": {
-      params: never,
-      query: ExportedQuery<import('app/routes/portal.logistics.js').SearchParams>,
-    },
-    "/portal/logo/:issueKey": {
-      params: {'issueKey': string | number},
-      query: ExportedQuery<import('app/routes/portal.logo.$issueKey.js').SearchParams>,
-    },
-    "/portal/profile": {
-      params: never,
-      query: ExportedQuery<import('app/routes/portal.profile.js').SearchParams>,
+    "/portal/*": {
+      params: {'*': string | number},
+      query: ExportedQuery<import('app/routes/portal.$.js').SearchParams>,
     },
     "/robots.txt": {
       params: never,
@@ -249,6 +241,26 @@ declare module "safe-routes" {
     "/speaker-portal": {
       params: never,
       query: ExportedQuery<import('app/routes/speaker-portal._index.js').SearchParams>,
+    },
+    "/sponsor-portal": {
+      params: never,
+      query: ExportedQuery<import('app/routes/sponsor-portal._index.js').SearchParams>,
+    },
+    "/sponsor-portal/feedback": {
+      params: never,
+      query: ExportedQuery<import('app/routes/sponsor-portal.feedback.js').SearchParams>,
+    },
+    "/sponsor-portal/logistics": {
+      params: never,
+      query: ExportedQuery<import('app/routes/sponsor-portal.logistics.js').SearchParams>,
+    },
+    "/sponsor-portal/logo/:issueKey": {
+      params: {'issueKey': string | number},
+      query: ExportedQuery<import('app/routes/sponsor-portal.logo.$issueKey.js').SearchParams>,
+    },
+    "/sponsor-portal/profile": {
+      params: never,
+      query: ExportedQuery<import('app/routes/sponsor-portal.profile.js').SearchParams>,
     },
     "/sponsors/:year?": {
       params: {'year'?: string | number},
@@ -284,6 +296,12 @@ declare module "safe-routes" {
             | 'routes/blog.rss[.xml]'
             | 'routes/speaker-portal'
             | 'routes/speaker-portal._index'
+            | 'routes/sponsor-portal'
+            | 'routes/sponsor-portal.logo.$issueKey'
+            | 'routes/sponsor-portal.logistics'
+            | 'routes/sponsor-portal.feedback'
+            | 'routes/sponsor-portal.profile'
+            | 'routes/sponsor-portal._index'
             | 'routes/app-content.$'
             | 'routes/sitemap[.xml]'
             | 'routes/[robots.txt]'
@@ -291,6 +309,7 @@ declare module "safe-routes" {
             | 'routes/app-config'
             | 'routes/auth.login'
             | 'routes/api.theme'
+            | 'routes/portal.$'
             | 'routes/_layout'
             | 'routes/_layout.runsheets.($filter)'
             | 'routes/_layout.runsheets.bump-in'
@@ -306,11 +325,6 @@ declare module "safe-routes" {
             | 'routes/_layout.share'
             | 'routes/_layout.app'
             | 'routes/_layout.$'
-            | 'routes/portal'
-            | 'routes/portal.logo.$issueKey'
-            | 'routes/portal.logistics'
-            | 'routes/portal.profile'
-            | 'routes/portal._index'
             | 'routes/admin'
             | 'routes/admin.voting-validation.stats.$runId'
             | 'routes/admin.voting-validation.stats.$runId.download'
@@ -320,6 +334,7 @@ declare module "safe-routes" {
             | 'routes/admin.settings_.volunteers'
             | 'routes/admin.sponsors_.follow-up'
             | 'routes/admin.settings_.speakers'
+            | 'routes/admin.sponsors_.feedback'
             | 'routes/admin.feedback_.export'
             | 'routes/admin.volunteers_.save'
             | 'routes/admin.volunteers'

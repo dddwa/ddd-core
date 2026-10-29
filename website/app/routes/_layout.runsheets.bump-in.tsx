@@ -1,6 +1,6 @@
+import { tryConferenceTime } from '~/lib/dates/temporal'
 import { conferenceManifest } from '@conference/manifest'
 import type { RunsheetsBumpInConfig, RunsheetsConfig } from '@ddd/conference-config'
-import { DateTime } from 'luxon'
 import { data, useLoaderData, useSearchParams, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { AdminCard } from '~/components/admin-card'
 import { AdminLayout } from '~/components/admin-layout'
@@ -23,7 +23,7 @@ import { fetchRunsheet } from '~/lib/runsheets/runsheet-client.server'
 import { filterRunsheetItems, labelsInUse, parseRunsheetFilters } from '~/lib/runsheets/runsheet-filters'
 import { type BumpInItem, fetchSponsorBumpIn, sortByStartTime } from '~/lib/runsheets/sponsor-bump-in.server'
 import { noIndexMeta } from '~/lib/seo'
-import { getConfig, getServices } from '~/remix-app-load-context'
+import { getConfig, getDateTimeProvider, getServices } from '~/remix-app-load-context'
 import { styled } from '~/styled-system/jsx'
 import type { Route } from './+types/_layout.runsheets.bump-in'
 
@@ -59,10 +59,9 @@ async function loadBumpIn(context: LoadContext, cacheGeneration: string) {
     const { config, bumpIn } = requireBumpInConfig()
     const { apiEmail, apiToken, apiBaseUrl } = getConfig(context).jira
     const shared = { config, apiEmail, apiToken, apiBaseUrl, cacheTtlSeconds: CACHE_TTL_SECONDS, cacheGeneration }
-    const { timezone } = conferenceManifest.public
 
     const [volunteer, exhibitorItems] = await Promise.all([
-        fetchRunsheet({ ...shared, jql: bumpIn.volunteerJql, timezone }),
+        fetchRunsheet({ ...shared, jql: bumpIn.volunteerJql }),
         fetchSponsorBumpIn({ ...shared, bumpIn }),
     ])
     const items: BumpInItem[] = [...volunteer.items, ...exhibitorItems]
@@ -96,6 +95,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return data(
         {
             items,
+            serverNow: getDateTimeProvider(context).nowDate().toString({ timeZoneName: 'never', fractionalSecondDigits: 3 }),
             canRefresh,
             teamLabels: config.teamLabels,
             teamIcons: config.teamIcons ?? {},
@@ -117,16 +117,16 @@ export function shouldRevalidate({ currentUrl, nextUrl, defaultShouldRevalidate 
 /** Time in the conference's zone. The day is the section's heading. */
 function formatTime(isoDateTime: string | null): string {
     if (!isoDateTime) return '-'
-    const dateTime = DateTime.fromISO(isoDateTime, { zone: conferenceManifest.public.timezone })
-    return dateTime.isValid ? dateTime.toFormat('h:mm a') : '-'
+    const dateTime = tryConferenceTime(isoDateTime)
+    return dateTime ? dateTime.toLocaleString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }) : '-'
 }
 
 /** "Friday 2 October" — bump-in spans Friday and Saturday morning. Untimed rows sort last, into their own section. */
 function dayOf(item: BumpInItem): string {
     const dateTime = item.startTime
-        ? DateTime.fromISO(item.startTime, { zone: conferenceManifest.public.timezone })
+        ? tryConferenceTime(item.startTime)
         : null
-    return dateTime?.isValid ? dateTime.toFormat('cccc d LLLL') : 'Time to be confirmed'
+    return dateTime ? dateTime.toLocaleString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Time to be confirmed'
 }
 
 /** What an exhibitor needs help with on arrival, one per line. */
@@ -154,6 +154,7 @@ export default function BumpInRunsheet() {
         teamIcons,
         locationLabels,
         fetchedAt,
+        serverNow,
     } = useLoaderData<typeof loader>()
     const [searchParams] = useSearchParams()
     // No agenda sessions on this run sheet, so no Agenda team or Show Agenda.
@@ -161,7 +162,7 @@ export default function BumpInRunsheet() {
     const items = filterRunsheetItems(allItems, filters).map((item) =>
         item.exhibitor && item.locations.length === 0 ? { ...item, locations: ['Space TBC'] } : item,
     )
-    const { nowIds, firstNowId } = useRunsheetNow(items)
+    const { nowIds, firstNowId } = useRunsheetNow(items, serverNow)
     useRunsheetOffline()
     const filterOptions = runsheetFilterOptions({
         teamLabels: labelsInUse(
@@ -187,7 +188,6 @@ export default function BumpInRunsheet() {
                 <RunsheetFilterButton filters={filters} />
                 <RunsheetFreshness
                     fetchedAt={fetchedAt}
-                    timezone={conferenceManifest.public.timezone}
                     clearsJiraCache={canRefresh}
                 />
             </RunsheetToolbar>
