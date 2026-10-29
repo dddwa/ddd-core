@@ -1,6 +1,5 @@
-import { conferenceManifest } from '@conference/manifest'
-import { DateTime } from 'luxon'
 import { describe, expect, it } from 'vitest'
+import { conferenceTime } from '../dates/temporal'
 import { parseSpeakerSettingsForm, resolveSpeakerSettings, speakerSettingsSchema, toDateTimeLocal } from './speakers'
 
 function form(fields: Record<string, string | string[]>): FormData {
@@ -13,8 +12,8 @@ function form(fields: Record<string, string | string[]>): FormData {
 
 // The expected instant for a datetime-local value, read in the conference's
 // own timezone — whatever that is for the conference running the suite.
-function inConferenceZone(local: string): string | null {
-    return DateTime.fromISO(local, { zone: conferenceManifest.public.timezone }).toISO()
+function inConferenceZone(local: string): string {
+    return conferenceTime(local).toString({ timeZoneName: 'never', fractionalSecondDigits: 3 })
 }
 
 describe('parseSpeakerSettingsForm', () => {
@@ -24,6 +23,13 @@ describe('parseSpeakerSettingsForm', () => {
         expect(result.value.dueDates.claimTicket).toBe(inConferenceZone('2026-09-11T22:00'))
         // And round-trips back to the same input value.
         expect(toDateTimeLocal(result.value.dueDates.claimTicket)).toBe('2026-09-11T22:00')
+    })
+
+    it('returns validation errors for malformed and impossible datetimes', () => {
+        for (const invalid of ['not a date', '2026-02-30T12:00', '2026-10-03']) {
+            expect(speakerSettingsSchema.safeParse({ dueDates: { claimTicket: invalid }, trainingSessions: [], meetTheExpertsSlots: [] }).success).toBe(false)
+            expect(parseSpeakerSettingsForm(form({ 'dueDate.claimTicket': invalid }))).toEqual({ errors: ['Claim your speaker ticket due date: not a valid date/time'] })
+        }
     })
 
     it('leaves blank sections out rather than saving empty values', () => {
@@ -93,7 +99,7 @@ describe('parseSpeakerSettingsForm', () => {
         if (!('value' in result)) throw new Error(result.errors.join())
         const resolved = resolveSpeakerSettings(speakerSettingsSchema.parse(result.value))
         expect(resolved.trainingSessions[0]).toMatchObject({ id: 'Session 2', title: 'Presentation skills' })
-        expect(resolved.trainingSessions[0]?.dateTime.toISO()).toBe(inConferenceZone('2026-09-09T17:30'))
+        expect(resolved.trainingSessions[0]?.dateTime.toString({ timeZoneName: 'never', fractionalSecondDigits: 3 })).toBe(inConferenceZone('2026-09-09T17:30'))
         expect(resolved.dinner?.endDateTime.hour).toBe(20)
     })
 })
