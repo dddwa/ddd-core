@@ -133,7 +133,41 @@ first:
 - Drop `luxon` and `@types/luxon` from `conference/package.json` and the root
   `package.json` once nothing imports them.
 
-### 6a. Port changes to the fork's root configs
+### 6a. Link the fork's skills to core's
+
+```bash
+ls -l .claude/skills
+```
+
+`core-pull`, `core-push` and `new-conference` should be symlinks into
+`core/.claude/skills/`. If any is a plain directory, it's a copy from when the
+fork was scaffolded, and it has stopped getting updates: this pull just updated
+`core/.claude/skills/`, not the fork's copy. Replace each one:
+
+```bash
+for s in core-pull core-push new-conference; do
+  test -L ".claude/skills/$s" && continue
+  git rm -rq ".claude/skills/$s"
+  ln -s "../../core/.claude/skills/$s" ".claude/skills/$s"
+  git add ".claude/skills/$s"
+done
+```
+
+Before the loop, check the fork hasn't edited its copies. This compares each
+against core's version from before the pull, so it shows only fork edits:
+
+```bash
+for s in core-pull core-push new-conference; do
+  test -L ".claude/skills/$s" || git diff --stat "HEAD^1:core/.claude/skills/$s" "HEAD^1:.claude/skills/$s"
+done
+```
+
+Any output is a fork edit. Upstream it with `/core-push` rather than losing it. Then **re-read
+`core/.claude/skills/core-pull/SKILL.md`** and follow the rest of it from there.
+You're running the copy that was loaded before the pull, and the new one may
+have steps this one lacks.
+
+### 6b. Port changes to the fork's root configs
 
 `/new-conference` copied `core/eslint.config.mjs` (and the other workspace
 configs) up to the fork root once. A subtree pull updates `core/`'s copies, never
@@ -165,7 +199,7 @@ import dateRules from './core/eslint-rules/date-time.mjs'
 Without that block, lint never checks the fork's config for eager date
 construction or Luxon. Commit the ports separately from the pull.
 
-### 6b. Verify the subtree split trailer survived
+### 6c. Verify the subtree split trailer survived
 
 ```bash
 git log --format=%B origin/main..HEAD | grep "git-subtree-split" | head -1
@@ -193,7 +227,7 @@ Summarise:
 - Number of upstream commits pulled
 - Whether there were conflicts (and where)
 - Whether the build passed
-- That the `git-subtree-split` trailer is present (step 6b)
+- That the `git-subtree-split` trailer is present (step 6c)
 - Suggested next step: push the branch and open a PR
 
 **If the fork reviews changes via PR, tell the user — in the report and in the
