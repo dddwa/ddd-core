@@ -323,6 +323,8 @@ core/package.json
 ],
 ```
 
+Then repoint the date rules block at the fork: import from `./core/eslint-rules/date-time.mjs`, and change its `files` glob from `conference-stub/config/**/*.ts` to `conference/config/**/*.ts`. Left as copied, the import fails to resolve and the rules check nothing in the fork.
+
 (A future cleanup would move `defineTheme` into `@ddd/conference-config` so themes don't cross project boundaries — then the allow rule and this whole eslint duplication go away.)
 
 **`FORK_GUIDE.md`** — a checklist. Key items:
