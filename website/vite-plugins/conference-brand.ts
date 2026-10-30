@@ -1,6 +1,6 @@
 import path from 'node:path'
 import type { BrandAssets } from '@ddd/conference-config'
-import type { Plugin } from 'vite'
+import { searchForWorkspaceRoot, type Plugin } from 'vite'
 
 // The logo and hero marks are imported as `?react` components, so they are
 // compiled into the bundle and the `conference-public` URL overlay can't
@@ -20,6 +20,17 @@ export function conferenceBrandPlugin(brandAssets: BrandAssets): Plugin {
 
     return {
         name: 'dddperth:conference-brand',
+
+        // A fork's brand files sit in conference/, outside the core/ workspace
+        // that Vite allows by default, and vitest has no fork override to widen
+        // it. Setting `fs.allow` switches off Vite's workspace-root default, so
+        // keep that root in the list too; Vite concatenates it with any allow
+        // list vite.config.ts sets.
+        config(config) {
+            const root = config.root ?? process.cwd()
+            const brandDirs = [brandAssets.logo, ...brandAssets.heroMarks].map((file) => path.dirname(path.resolve(file)))
+            return { server: { fs: { allow: [searchForWorkspaceRoot(root), ...new Set(brandDirs)] } } }
+        },
 
         resolveId(id) {
             if (id === ID) return RESOLVED
