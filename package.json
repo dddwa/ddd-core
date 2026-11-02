@@ -38,7 +38,6 @@
         "eslint": "10.14.0",
         "eslint-config-prettier": "10.1.8",
         "eslint-plugin-jsx-a11y-x": "0.2.0",
-        "framer-motion": "^12.38.0",
         "inquirer": "^13.4.3",
         "isbot": "5.1.40",
         "nx": "24.0.4",
