@@ -50,7 +50,9 @@
                 "^default",
                 "{workspaceRoot}/eslint.config.mjs",
                 "{workspaceRoot}/eslint-rules/**/*",
-                { "externalDependencies": ["eslint"] }
+                {
+                    "externalDependencies": ["eslint"]
+                }
             ]
         }
     },
