@@ -7,7 +7,7 @@ const noTopLevelAwait: Rule.RuleModule = {
     meta: { schema: [] },
     create(context) {
         return {
-            'AwaitExpression, ForOfStatement[await=true]'(node) {
+            'AwaitExpression, ForOfStatement[await=true]'(node: Rule.Node) {
                 const insideFunction = context.sourceCode.getAncestors(node).some((ancestor) =>
                     ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(ancestor.type))
                 if (!insideFunction) {

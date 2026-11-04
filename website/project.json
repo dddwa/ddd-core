@@ -40,7 +40,7 @@
             "options": {
                 "commands": [
                     {
-                        "command": "pnpm exec park-ui",
+                        "command": "pnpm dlx @park-ui/cli@1.0.1",
                         "forwardAllArgs": true
                     }
                 ],

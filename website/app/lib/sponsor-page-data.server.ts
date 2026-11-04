@@ -60,7 +60,7 @@ function normaliseSponsorName(name: string): string {
 
 function sponsorIdentityKey(sponsor: Sponsor): string {
     const normalisedName = normaliseSponsorName(sponsor.name)
-    let host = ''
+    let host: string
     try {
         host = new URL(sponsor.website).hostname.replace(/^www\./, '').toLowerCase()
     } catch {

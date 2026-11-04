@@ -1,6 +1,6 @@
 import { configs } from '@nx/eslint-plugin'
-import jsxA11y from 'eslint-plugin-jsx-a11y'
-import react from 'eslint-plugin-react'
+import eslintReact from '@eslint-react/eslint-plugin'
+import jsxA11y from 'eslint-plugin-jsx-a11y-x'
 import jsonParser from 'jsonc-eslint-parser'
 import ts from 'typescript-eslint'
 import baseConfig from '../eslint.config.mjs'
@@ -35,9 +35,13 @@ export default [
     ...configs['flat/javascript'],
     ...configs['flat/typescript'],
     ...ts.configs.recommendedTypeChecked,
-    react.configs.flat.recommended, // This is not a plugin object, but a shareable config object
-    react.configs.flat['jsx-runtime'], // Add this if you are using React 17+
-    jsxA11y.flatConfigs.recommended,
+    // Also covers the hooks rules (rules-of-hooks, exhaustive-deps and the
+    // React Compiler checks), so eslint-plugin-react-hooks isn't loaded too.
+    {
+        files: ['**/*.ts', '**/*.tsx'],
+        ...eslintReact.configs['recommended-type-checked'],
+    },
+    jsxA11y.configs.recommended,
     {
         files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
         rules: {
@@ -69,8 +73,6 @@ export default [
             '@typescript-eslint/no-empty-object-type': 'off',
             '@typescript-eslint/no-empty-interface': 'off',
             '@typescript-eslint/require-await': 'off',
-            'react/no-unescaped-entities': 'off',
-            'react/prop-types': 'off',
             'prefer-const': 'off',
             '@typescript-eslint/no-unused-vars': 'off',
             '@typescript-eslint/unbound-method': 'off',
@@ -131,15 +133,14 @@ export default [
     },
     {
         settings: {
-            react: { version: 'detect' },
-            // eslint-plugin-jsx-a11y only recognises lowercase JSX tags
+            // eslint-plugin-jsx-a11y-x only recognises lowercase JSX tags
             // (`<div>`, `<button>`, ...) out of the box. This codebase renders
             // almost everything through PandaCSS's styled-system (`<Box>`,
             // `<Flex>`, `<Grid>`, `<Container>`, ...), which are just `<div>`s
-            // under the hood — without this mapping, jsx-a11y silently skips
+            // under the hood — without this mapping, jsx-a11y-x silently skips
             // every element written that way, including real bugs like an
             // onClick handler on a `<Box>` with no keyboard equivalent.
-            'jsx-a11y': {
+            'jsx-a11y-x': {
                 components: {
                     Box: 'div',
                     Flex: 'div',
@@ -155,7 +156,7 @@ export default [
     {
         files: ['**/*.tsx', '**/*.jsx'],
         rules: {
-            // Not part of jsx-a11y's `recommended` config, but a live,
+            // Not part of jsx-a11y-x's `recommended` config, but a live,
             // non-deprecated rule worth enforcing here: catches an
             // aria-hidden element that's still keyboard-focusable (a real
             // keyboard trap for screen reader + keyboard users).
@@ -169,7 +170,7 @@ export default [
             // suggested <output> alternative has different, form-associated
             // semantics). Left out rather than forcing those into worse
             // markup just to satisfy the rule.
-            'jsx-a11y/no-aria-hidden-on-focusable': 'error',
+            'jsx-a11y-x/no-aria-hidden-on-focusable': 'error',
         },
     },
     {
