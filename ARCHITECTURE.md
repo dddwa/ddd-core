@@ -70,7 +70,7 @@ In `ddd-core` standalone, those aliases point at `../conference-stub/`. In a for
 
 Content is deliberately *not* reached through an alias. Pages, posts and the blog authors YAML all come from the build manifest's `content.*` paths via the mdx-bundles Vite plugin (`virtual:mdx-bundles`, `virtual:blog-authors`), so one place decides where content lives — which is what lets the e2e suites swap in fixture blog content (see `vite.config.ts`).
 
-`vite.config.ts` and `panda.config.ts` are loaded by Node directly (before `vite-tsconfig-paths` is wired up), so they import the build-manifest and theme barrel via relative paths. The `/new-conference` skill sets these paths when it scaffolds a fork.
+`vite.config.ts` and `panda.config.ts` are loaded by Node directly (before Vite's `resolve.tsconfigPaths` applies), so they import the build-manifest and theme barrel via relative paths. The `/new-conference` skill sets these paths when it scaffolds a fork.
 
 ## Manifest contract
 
