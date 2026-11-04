@@ -182,10 +182,6 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/app-config.js').SearchParams>,
     },
-    "/app-content/*": {
-      params: {'*': string | number},
-      query: ExportedQuery<import('app/routes/app-content.$.js').SearchParams>,
-    },
     "/auth/login": {
       params: never,
       query: ExportedQuery<import('app/routes/auth.login.js').SearchParams>,
@@ -302,7 +298,6 @@ declare module "safe-routes" {
             | 'routes/sponsor-portal.feedback'
             | 'routes/sponsor-portal.profile'
             | 'routes/sponsor-portal._index'
-            | 'routes/app-content.$'
             | 'routes/sitemap[.xml]'
             | 'routes/[robots.txt]'
             | 'routes/auth.logout'

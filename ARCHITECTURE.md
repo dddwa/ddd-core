@@ -39,6 +39,7 @@ ddd-core/                    ← shared layer (its own repo)
     brand/                   logo + three hero marks (SVG), referenced by build-manifest brandAssets
     config/                  public.ts, socials.ts, years-index.ts, years/, venues/
     content/                 pages/ (15+ MDX), blog/ (posts + authors.yml)
+    routes/                  optional fork-only routes, flat-routes naming (see below)
     theme/                   <slug>.theme.ts + <slug>-light.theme.ts + index.ts
     wrangler/                local.jsonc, staging.jsonc, production.jsonc
   package.json               proxies pnpm/nx into core/
@@ -93,6 +94,7 @@ D1 database names are duplicated between the wrangler files and `build-manifest.
 |---|---|
 | New React component used by all conferences | `core/website/app/components/` |
 | New route used by all conferences | `core/website/app/routes/` |
+| New route for one conference only | `conference/routes/` (same flat-routes naming, registered after core's by `core/website/app/routes.ts`) |
 | New conference year's data | `conference/config/years/YYYY.ts` |
 | Brand colour change | `conference/theme/<slug>.theme.ts` (and `-light`) |
 | Content of an existing page (about, faq, etc.) | `conference/content/pages/*.mdx` |
@@ -118,6 +120,12 @@ Mobile-app advertising follows a different pattern — `manifest.mobileApp` eith
 Retiring an app is a third state, and it splits those two routes apart. Once a fork stops maintaining its app there are still copies installed on people's phones polling `/app-config` on launch, so 404ing that endpoint breaks them rather than retiring them. Setting `manifest.mobileApp.retired` keeps the store URLs in the manifest (the endpoint needs the rest of the block) while `/app` starts 404ing like a fork with no app at all. `/app-config` is untouched — a retired app receives a byte-identical payload, which a test asserts. Don't retire an app by deleting `mobileApp` — that takes the installed copies down with it.
 
 **`retired` is deliberately a bare flag, not a place for banner copy.** Telling a retired app's remaining users something is what `/app-announcements` already does — editable at `/admin/settings`, stored in D1, and, decisively, *already understood by the installed builds*. A new config field would only reach a build shipped after it was added, which for an app nobody is rebuilding is nobody. Note the announcement slot is a single current message per year, so a standing retirement notice and a day-of update compete for it.
+
+### Fork-owned routes
+
+`core/website/app/routes.ts` also registers `conference/routes/`, if the folder exists. Files there follow the same flat-routes naming as `core/website/app/routes/`. It's for endpoints only one conference has, so their code never has to live in core. DDD Perth's mobile-app `/app-content/*` is the example: core's `/app-config` advertises those URLs, but only DDD Perth's installed app reads them, so DDD Perth serves them itself.
+
+A fork route reaches core code by relative path (`../../core/website/app/...`), as fork themes already do for `theme-builder.ts`. Path aliases like `~/` belong to the website's tsconfig and don't apply to files under `conference/`. A route's name can shadow a core route, so check `core/website/app/routes/` before naming one.
 
 When a new per-fork extension point is needed, the same pattern applies: add an optional manifest field in `core/libs/conference-config/src/manifest.ts`, have the core component check + branch on it, ship an `.mdx` in `conference/content/pages/` if the fork wants the content. Avoid baking conference-specific strings into components.
 

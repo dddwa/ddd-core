@@ -6,7 +6,6 @@ export interface ContentPage {
     frontmatter: FrontmatterProperties
     slug: string
     type: ContentType
-    code: string | undefined
     dateDisplay: string | undefined
 }
 
@@ -23,6 +22,6 @@ export interface ContentListItem {
 }
 
 export interface ContentService {
-    getPage(slug: string, type: ContentType, options?: { includeCode?: boolean }): Promise<ContentPage | null>
+    getPage(slug: string, type: ContentType): Promise<ContentPage | null>
     getPagesList(type: ContentType): Promise<ContentListItem[]>
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('virtual:mdx-bundles', () => {
-    const entry = (frontmatter: Record<string, unknown>) => ({ frontmatter, load: vi.fn(), code: vi.fn() })
+    const entry = (frontmatter: Record<string, unknown>) => ({ frontmatter, load: vi.fn() })
     return {
         default: {
             page: {},

@@ -19,23 +19,15 @@ import { parse as parseYaml } from 'yaml'
 
 // Why two virtual modules:
 //
-// `virtual:mdx-bundles` is the index — it re-exports every compiled MDX entry
-// as a lazy import. We can't `new Function(code)` at request time because
-// workerd (Cloudflare Workers) disallows eval, so each MDX file becomes its
-// own ESM module at `virtual:mdx-bundle/<type>/<slug>` with a proper `export
-// default` component. The index wires them together so the app keeps a single
+// `virtual:mdx-bundles` is the index. It inlines every entry's frontmatter,
+// because listings need it synchronously, and lazily imports each component
+// from its own module at `virtual:mdx-bundle/<type>/<slug>`, so a page only
+// loads its own content. The app keeps a single
 // `import bundles from 'virtual:mdx-bundles'` entry point.
 const INDEX_ID = 'virtual:mdx-bundles'
 const INDEX_RESOLVED = '\0virtual:mdx-bundles'
 const ITEM_PREFIX = 'virtual:mdx-bundle/'
 const ITEM_RESOLVED_PREFIX = '\0virtual:mdx-bundle/'
-// Third virtual module type: exposes the compiled MDX as a function body
-// string for the public app-content API. The React Native app evaluates it
-// with `new Function('React','ReactDOM','_jsx_runtime', code)` — a contract
-// the worker can't honor itself (workerd forbids eval) but external clients
-// can.
-const CODE_PREFIX = 'virtual:mdx-code/'
-const CODE_RESOLVED_PREFIX = '\0virtual:mdx-code/'
 // The blog authors YAML, as a raw string. Served from the same plugin as the
 // posts so the two always come from the same place — the e2e suites swap both
 // for fixtures together (see `vite.config.ts`).
@@ -45,9 +37,7 @@ const AUTHORS_RESOLVED = '\0virtual:blog-authors'
 type ContentType = 'page' | 'blog'
 
 interface CompiledMdx {
-    // MDX's `function-body` output: reads the JSX runtime from `arguments[0]`
-    // and returns `{ default: MDXContent, ...namedExports }`.
-    body: string
+    module: string
     frontmatter: Record<string, unknown>
 }
 
@@ -178,12 +168,11 @@ async function compileOne(filePath: string, source: string): Promise<CompiledMdx
         compile(file, {
             // `.md` posts too, so they can use the same JSX components.
             format: 'mdx',
-            outputFormat: 'function-body',
             remarkPlugins: [remarkFrontmatter, remarkFrontmatterData, gfm, ...remarkPlugins],
             rehypePlugins: [rehypeSlug, [rehypeAutolinkHeadings, { behavior: 'wrap' }], ...rehypePlugins],
         }),
     )
-    return { body: String(result), frontmatter: result.data.frontmatter as Record<string, unknown> }
+    return { module: String(result), frontmatter: result.data.frontmatter as Record<string, unknown> }
 }
 
 async function readContentDir(absDir: string, extensions: string[]): Promise<Array<{ slug: string; filePath: string }>> {
@@ -214,49 +203,13 @@ export interface MdxBundlesOptions {
     blogAuthorsFile: string
 }
 
-/**
- * Workerd forbids `new Function` and `eval`, so the site can't evaluate the
- * body string at runtime. Wrapping it in a plain function at build time needs
- * neither, and keeps one compile per file serving both the site and the
- * app-content code.
- */
 function toEsmModule(compiled: CompiledMdx): string {
-    return [
-        `import * as _jsx_runtime from 'react/jsx-runtime'`,
-        `const Component = (function () {\n${compiled.body}\n})(_jsx_runtime)`,
-        `export default Component.default`,
-        `export const frontmatter = ${JSON.stringify(compiled.frontmatter)}`,
-    ].join('\n')
-}
-
-/**
- * The mobile app evaluates this with
- * `new Function('React', 'ReactDOM', '_jsx_runtime', code)` and reads
- * `default` and `frontmatter` off the result. Installed apps pass that fixed
- * signature, so it can't change; the body only uses the JSX runtime.
- */
-function toAppCode(compiled: CompiledMdx): string {
-    return [
-        `var Component = (function () {\n${compiled.body}\n})(_jsx_runtime);`,
-        `Component.frontmatter = ${JSON.stringify(compiled.frontmatter)};`,
-        `return Component;`,
-    ].join('\n')
+    return `${compiled.module}\nexport const frontmatter = ${JSON.stringify(compiled.frontmatter)}\n`
 }
 
 function parseItemId(id: string): { type: ContentType; slug: string } | null {
     if (!id.startsWith(ITEM_RESOLVED_PREFIX)) return null
     const rest = id.slice(ITEM_RESOLVED_PREFIX.length)
-    const slashIdx = rest.indexOf('/')
-    if (slashIdx < 0) return null
-    const type = rest.slice(0, slashIdx) as ContentType
-    const slug = rest.slice(slashIdx + 1)
-    if (type !== 'page' && type !== 'blog') return null
-    return { type, slug }
-}
-
-function parseCodeId(id: string): { type: ContentType; slug: string } | null {
-    if (!id.startsWith(CODE_RESOLVED_PREFIX)) return null
-    const rest = id.slice(CODE_RESOLVED_PREFIX.length)
     const slashIdx = rest.indexOf('/')
     if (slashIdx < 0) return null
     const type = rest.slice(0, slashIdx) as ContentType
@@ -320,14 +273,11 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
                 slugs.map(async (slug) => {
                     const { frontmatter } = await loadCompiled(type, slug)
                     const importId = `${ITEM_PREFIX}${type}/${slug}`
-                    const codeImportId = `${CODE_PREFIX}${type}/${slug}`
                     const cacheKey = `${type}/${slug}`
-                    const codeCacheKey = `code:${type}/${slug}`
                     return (
                         `  ${JSON.stringify(slug)}: {\n` +
                         `    frontmatter: ${JSON.stringify(frontmatter)},\n` +
                         `    load: () => (__mdxLoadCache[${JSON.stringify(cacheKey)}] ??= import(${JSON.stringify(importId)})),\n` +
-                        `    code: () => (__mdxLoadCache[${JSON.stringify(codeCacheKey)}] ??= import(${JSON.stringify(codeImportId)}).then(m => m.default)),\n` +
                         `  }`
                     )
                 }),
@@ -359,7 +309,6 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
             if (id === INDEX_ID) return INDEX_RESOLVED
             if (id === AUTHORS_ID) return AUTHORS_RESOLVED
             if (id.startsWith(ITEM_PREFIX)) return '\0' + id
-            if (id.startsWith(CODE_PREFIX)) return '\0' + id
         },
 
         async load(id) {
@@ -370,11 +319,6 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
             if (id === AUTHORS_RESOLVED) {
                 this.addWatchFile(blogAuthorsFile)
                 return `export default ${JSON.stringify(await readFile(blogAuthorsFile, 'utf-8'))}`
-            }
-            const codeParsed = parseCodeId(id)
-            if (codeParsed) {
-                const compiled = await loadCompiled(codeParsed.type, codeParsed.slug)
-                return `export default ${JSON.stringify(toAppCode(compiled))}`
             }
             const parsed = parseItemId(id)
             if (!parsed) return
@@ -405,7 +349,6 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
                     for (const [slug, fp] of map) {
                         if (fp === filePath) {
                             modsToInvalidate.push(`\0${ITEM_PREFIX}${type}/${slug}`)
-                            modsToInvalidate.push(`\0${CODE_PREFIX}${type}/${slug}`)
                         }
                     }
                 }

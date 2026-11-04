@@ -30,18 +30,16 @@ function coerceFrontmatter(frontmatter: Record<string, unknown>): FrontmatterPro
  */
 export function createMdxContentService(): ContentService {
     return {
-        async getPage(slug, type, options = {}): Promise<ContentPage | null> {
+        async getPage(slug, type): Promise<ContentPage | null> {
             const entry = bundles[type][slug]
             if (!entry) return null
 
             const frontmatter = coerceFrontmatter(entry.frontmatter)
-            const code = options.includeCode ? await entry.code() : undefined
 
             return {
                 frontmatter,
                 slug,
                 type,
-                code,
                 dateDisplay: frontmatter.date ? formatDate(frontmatter.date) : undefined,
             }
         },

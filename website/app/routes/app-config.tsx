@@ -5,6 +5,8 @@
 // The URLs returned point at the fork's GitHub repo (for raw MDX content)
 // and the fork's deployed domain (for the V2 app-content endpoints). Both
 // are derived from manifest.brand so the route works for any fork.
+// `/app-content/*` isn't served by core: a fork with an app that reads it
+// adds the route in its own `conference/routes/` (see ARCHITECTURE.md).
 
 import { conferenceManifest } from '@conference/manifest'
 import type { YearSponsors } from '~/lib/conference-state-client-safe'
