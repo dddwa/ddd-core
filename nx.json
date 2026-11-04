@@ -43,6 +43,17 @@
                     "externalDependencies": ["eslint"]
                 }
             ]
+        },
+        "typecheck": {
+            "// inputs": "`default`, not the inferred `production`: each tsconfig includes the test files, so a type error in a test must miss the cache.",
+            "inputs": [
+                "default",
+                "^production",
+                "{workspaceRoot}/tsconfig.base.json",
+                {
+                    "externalDependencies": ["typescript"]
+                }
+            ]
         }
     },
     "projects": {
