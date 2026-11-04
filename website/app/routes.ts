@@ -15,7 +15,15 @@ const conferenceDir = ['../../../conference', '../../conference-stub'].find((dir
     fs.existsSync(path.resolve(import.meta.dirname, dir, 'manifest.ts')),
 )
 
+// The ignore globs match paths relative to app/, and `**` never crosses the
+// `..` that leads out to the conference layer, so they need its prefix.
+const conferenceRoutes = (dir: string) =>
+    flatRoutes({
+        rootDirectory: `${dir}/routes`,
+        ignoredRouteFiles: ignoredRouteFiles.map((glob) => `${dir}/routes/${glob}`),
+    })
+
 export default (async () => [
     ...(await flatRoutes({ ignoredRouteFiles })),
-    ...(conferenceDir ? await flatRoutes({ ignoredRouteFiles, rootDirectory: `${conferenceDir}/routes` }) : []),
+    ...(conferenceDir ? await conferenceRoutes(conferenceDir) : []),
 ])() satisfies RouteConfig
