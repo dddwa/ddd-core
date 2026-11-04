@@ -1,5 +1,15 @@
 {
-    "include": ["env.d.ts", "worker-configuration.d.ts", "**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+    // The conference layer's own routes (see app/routes.ts) are part of this
+    // app, so they're checked with its aliases and types. Fork override:
+    // ../../conference/routes, like the @conference/* paths below.
+    "include": [
+        "env.d.ts",
+        "worker-configuration.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        ".react-router/types/**/*",
+        "../conference-stub/routes/**/*"
+    ],
     "compilerOptions": {
         "lib": ["DOM", "DOM.Iterable", "ES2022"],
         // Cloudflare runtime types now come from the ambient

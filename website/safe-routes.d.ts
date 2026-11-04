@@ -162,26 +162,6 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/_layout.app.js').SearchParams>,
     },
-    "/app-agenda-grid": {
-      params: never,
-      query: ExportedQuery<import('app/routes/app-agenda-grid.js').SearchParams>,
-    },
-    "/app-agenda-sessions": {
-      params: never,
-      query: ExportedQuery<import('app/routes/app-agenda-sessions.js').SearchParams>,
-    },
-    "/app-agenda-speakers": {
-      params: never,
-      query: ExportedQuery<import('app/routes/app-agenda-speakers.js').SearchParams>,
-    },
-    "/app-announcements": {
-      params: never,
-      query: ExportedQuery<import('app/routes/app-announcements.js').SearchParams>,
-    },
-    "/app-config": {
-      params: never,
-      query: ExportedQuery<import('app/routes/app-config.js').SearchParams>,
-    },
     "/auth/login": {
       params: never,
       query: ExportedQuery<import('app/routes/auth.login.js').SearchParams>,
@@ -281,14 +261,10 @@ declare module "safe-routes" {
             | 'routes/api.feedback.reviewed'
             | 'routes/api.tito-registration'
             | 'routes/api.agenda.shortlist'
-            | 'routes/app-agenda-sessions'
-            | 'routes/app-agenda-speakers'
             | 'routes/auth.verify.$token'
-            | 'routes/app-announcements'
             | 'routes/api.voting.batch'
             | 'routes/agenda.my[.ics]'
             | 'routes/api.voting.vote'
-            | 'routes/app-agenda-grid'
             | 'routes/blog.rss[.xml]'
             | 'routes/speaker-portal'
             | 'routes/speaker-portal._index'
@@ -301,7 +277,6 @@ declare module "safe-routes" {
             | 'routes/sitemap[.xml]'
             | 'routes/[robots.txt]'
             | 'routes/auth.logout'
-            | 'routes/app-config'
             | 'routes/auth.login'
             | 'routes/api.theme'
             | 'routes/portal.$'

@@ -5,8 +5,9 @@
 //
 // A retired app (`mobileApp.retired`) 404s for the same reason: it still
 // exists in the stores, but it's no longer maintained, so sending new
-// visitors to install it is worse than sending them nowhere. The installed
-// copies are served by /app-config, which keeps answering.
+// visitors to install it is worse than sending them nowhere. The endpoints
+// the installed copies poll aren't in core: a fork with an app serves them
+// from its own `conference/routes/`.
 //
 // The page copy is intentionally generic ("the official conference app");
 // if a fork has app-specific marketing copy, the right place for it is an
@@ -32,7 +33,7 @@ export function loader() {
         throw new Response('Not Found', { status: 404, statusText: 'Not Found' })
     }
     // Loader-returned values are serialised, so we only ship the URL strings
-    // the page needs. (Bundle IDs are only consumed by /app-config.)
+    // the page needs.
     return { iosUrl: mobileApp.iosUrl, androidUrl: mobileApp.androidUrl }
 }
 

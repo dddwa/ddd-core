@@ -101,7 +101,8 @@ D1 database names are duplicated between the wrangler files and `build-manifest.
 | New page added for one conference only | `conference/content/pages/<slug>.mdx` (auto-discovered by mdx-bundles) |
 | Hero blurb on the homepage | `conference/content/pages/_home-hero.mdx`, referenced by `manifest.homepage.heroBlurbSlug` |
 | Country / land acknowledgement | `conference/content/pages/_acknowledgement.mdx`, referenced by `manifest.homepage.acknowledgementSlug` |
-| Mobile app download page (`/app`) | `manifest.mobileApp` (iOS + Android URLs). Omit to 404 the route; set `mobileApp.retired` to 404 it while keeping `/app-config` alive |
+| Mobile app download page (`/app`) | `manifest.mobileApp` (iOS + Android URLs). Omit it, or set `mobileApp.retired`, to 404 the route |
+| Endpoints a fork's mobile app polls | `conference/routes/` (DDD Perth: `/app-config`, `/app-content/*`, `/app-announcements`, `/app-agenda-*`) |
 | New manifest field | `core/libs/conference-config/src/manifest.ts` (interface) + every fork's `conference/manifest.ts` (value) |
 | D1 migration | `core/website/migrations/` (schema is core; data is per-fork at runtime) |
 | Sessionize/Tito secret | env var (set per environment via `wrangler secret put`) |
@@ -115,15 +116,13 @@ The runtime manifest has two opt-in slots for fork-owned MDX rendered by core co
 
 Slugs starting with `_` are excluded from the sitemap and the catchall route (they're fragments embedded in other pages, not navigable pages).
 
-Mobile-app advertising follows a different pattern — `manifest.mobileApp` either exists (route renders) or doesn't (route + JSON endpoint both 404). No fallback rendering, because pointing visitors at a non-existent app is worse than no link at all.
+Mobile-app advertising follows a different pattern — `manifest.mobileApp` either exists (`/app` renders) or doesn't (`/app` 404s). No fallback rendering, because pointing visitors at a non-existent app is worse than no link at all. Setting `mobileApp.retired` 404s `/app` too, for an app that's still in the stores but no longer maintained.
 
-Retiring an app is a third state, and it splits those two routes apart. Once a fork stops maintaining its app there are still copies installed on people's phones polling `/app-config` on launch, so 404ing that endpoint breaks them rather than retiring them. Setting `manifest.mobileApp.retired` keeps the store URLs in the manifest (the endpoint needs the rest of the block) while `/app` starts 404ing like a fork with no app at all. `/app-config` is untouched — a retired app receives a byte-identical payload, which a test asserts. Don't retire an app by deleting `mobileApp` — that takes the installed copies down with it.
-
-**`retired` is deliberately a bare flag, not a place for banner copy.** Telling a retired app's remaining users something is what `/app-announcements` already does — editable at `/admin/settings`, stored in D1, and, decisively, *already understood by the installed builds*. A new config field would only reach a build shipped after it was added, which for an app nobody is rebuilding is nobody. Note the announcement slot is a single current message per year, so a standing retirement notice and a day-of update compete for it.
+The endpoints an installed app polls aren't core's. A fork with an app serves them from `conference/routes/` (below), and they must keep answering after the app is retired, because the copies on people's phones still call them on launch.
 
 ### Fork-owned routes
 
-`core/website/app/routes.ts` also registers `conference/routes/`, if the folder exists. Files there follow the same flat-routes naming as `core/website/app/routes/`. It's for endpoints only one conference has, so their code never has to live in core. DDD Perth's mobile-app `/app-content/*` is the example: core's `/app-config` advertises those URLs, but only DDD Perth's installed app reads them, so DDD Perth serves them itself.
+`core/website/app/routes.ts` also registers `conference/routes/`, if the folder exists. Files there follow the same flat-routes naming as `core/website/app/routes/`. It's for endpoints only one conference has, so their code never has to live in core. DDD Perth's mobile-app API is the example: only its installed app calls those endpoints, so DDD Perth serves them itself.
 
 A fork route reaches core code by relative path (`../../core/website/app/...`), as fork themes already do for `theme-builder.ts`. Path aliases like `~/` belong to the website's tsconfig and don't apply to files under `conference/`. A route's name can shadow a core route, so check `core/website/app/routes/` before naming one.
 
