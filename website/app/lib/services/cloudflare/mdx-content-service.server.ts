@@ -25,7 +25,7 @@ function coerceFrontmatter(frontmatter: Record<string, unknown>): FrontmatterPro
 }
 
 /**
- * MDX-bundler-backed content service. The `bundles` virtual import is a
+ * MDX-backed content service. The `bundles` virtual import is a
  * Vite plugin output so it isn't Cloudflare-specific.
  */
 export function createMdxContentService(): ContentService {

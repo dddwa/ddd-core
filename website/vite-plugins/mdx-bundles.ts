@@ -1,18 +1,21 @@
 import { rehypeCodeBlocksShiki } from '@kentcdodds/md-temp'
+import { compile } from '@mdx-js/mdx'
 import remarkEmbedder, { type Transformer, type TransformerInfo } from '@remark-embedder/core'
 import oembedTransformer from '@remark-embedder/transformer-oembed'
 import type * as H from 'hast'
 import type { MdxJsxFlowElement } from 'mdast-util-mdx-jsx'
-import { bundleMDX } from 'mdx-bundler'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import PQueue from 'p-queue'
 import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 import rehypeSlug from 'rehype-slug'
+import remarkFrontmatter from 'remark-frontmatter'
 import gfm from 'remark-gfm'
 import type * as U from 'unified'
 import { visit } from 'unist-util-visit'
+import { VFile } from 'vfile'
 import type { Plugin } from 'vite'
+import { parse as parseYaml } from 'yaml'
 
 // Why two virtual modules:
 //
@@ -26,7 +29,7 @@ const INDEX_ID = 'virtual:mdx-bundles'
 const INDEX_RESOLVED = '\0virtual:mdx-bundles'
 const ITEM_PREFIX = 'virtual:mdx-bundle/'
 const ITEM_RESOLVED_PREFIX = '\0virtual:mdx-bundle/'
-// Third virtual module type: exposes the original mdx-bundler IIFE as a
+// Third virtual module type: exposes the compiled MDX as a function body
 // string for the public app-content API. The React Native app evaluates it
 // with `new Function('React','ReactDOM','_jsx_runtime', code)` — a contract
 // the worker can't honor itself (workerd forbids eval) but external clients
@@ -42,7 +45,9 @@ const AUTHORS_RESOLVED = '\0virtual:blog-authors'
 type ContentType = 'page' | 'blog'
 
 interface CompiledMdx {
-    code: string
+    // MDX's `function-body` output: reads the JSX runtime from `arguments[0]`
+    // and returns `{ default: MDXContent, ...namedExports }`.
+    body: string
     frontmatter: Record<string, unknown>
 }
 
@@ -157,37 +162,28 @@ const rehypePlugins: U.PluggableList = [removeDoublePInDetails, trimCodeBlocks, 
 
 const queue = new PQueue({ concurrency: 1, timeout: 1000 * 30 })
 
-async function compileOne(slug: string, source: string): Promise<CompiledMdx> {
-    try {
-        const result = await queue.add(() =>
-            bundleMDX({
-                source,
-                mdxOptions(options) {
-                    options.remarkPlugins = [...(options.remarkPlugins ?? []), gfm, ...remarkPlugins]
-                    options.rehypePlugins = [
-                        ...(options.rehypePlugins ?? []),
-                        rehypeSlug,
-                        [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-                        ...rehypePlugins,
-                    ]
-                    return options
-                },
-            }),
-        )
-        if (!result) throw new Error(`Failed to compile ${slug}`)
-        return { code: result.code, frontmatter: result.frontmatter }
-    } catch (err) {
-        // esbuild wraps the real cause inside errors[].detail.cause — surface it
-        // so build failures point at the offending content instead of the generic
-        // "Cannot process MDX file with esbuild" message.
-         
-        const e = err as any
-        const inner = e?.errors?.[0]?.detail?.cause
-        if (inner) {
-            console.error(`[mdx-bundles] Failed to compile "${slug}":`, inner)
-        }
-        throw err
+// The timestamp tag makes a bare `date: 2024-05-01` a Date, which serialises
+// to the full ISO string the content service and the mobile app expect.
+function remarkFrontmatterData() {
+    return function frontmatterData(tree: { children: Array<{ type: string; value?: string }> }, file: VFile) {
+        const [first] = tree.children
+        const data: unknown = first?.type === 'yaml' ? parseYaml(first.value ?? '', { customTags: ['timestamp'] }) : null
+        file.data.frontmatter = data ?? {}
     }
+}
+
+async function compileOne(filePath: string, source: string): Promise<CompiledMdx> {
+    const file = new VFile({ path: filePath, value: source })
+    const result = await queue.add(() =>
+        compile(file, {
+            // `.md` posts too, so they can use the same JSX components.
+            format: 'mdx',
+            outputFormat: 'function-body',
+            remarkPlugins: [remarkFrontmatter, remarkFrontmatterData, gfm, ...remarkPlugins],
+            rehypePlugins: [rehypeSlug, [rehypeAutolinkHeadings, { behavior: 'wrap' }], ...rehypePlugins],
+        }),
+    )
+    return { body: String(result), frontmatter: result.data.frontmatter as Record<string, unknown> }
 }
 
 async function readContentDir(absDir: string, extensions: string[]): Promise<Array<{ slug: string; filePath: string }>> {
@@ -219,29 +215,31 @@ export interface MdxBundlesOptions {
 }
 
 /**
- * The output of `bundleMDX` is an IIFE that ends with `;return Component;` —
- * designed to be fed into `new Function(...scopeVars, code)`. Workerd forbids
- * `new Function` and `eval`, so we rewrite the IIFE into a proper ESM module:
- * prepend the scope vars as real imports, strip the trailing `return`, and
- * re-export `Component.default` (the component) plus the frontmatter.
+ * Workerd forbids `new Function` and `eval`, so the site can't evaluate the
+ * body string at runtime. Wrapping it in a plain function at build time needs
+ * neither, and keeps one compile per file serving both the site and the
+ * app-content code.
  */
 function toEsmModule(compiled: CompiledMdx): string {
-    // The emitted code looks like:
-    //   var Component=(()=>{ ...references _jsx_runtime/React/ReactDOM... })();
-    //   ;return Component;
-    // We drop the trailing `;return Component;`. `Component` is now a module-
-    // scoped const holding `{ default, frontmatter }`.
-    const stripped = compiled.code.replace(/;\s*return Component;\s*$/, '')
     return [
-        `import * as React from 'react'`,
-        `import * as ReactDOM from 'react-dom'`,
         `import * as _jsx_runtime from 'react/jsx-runtime'`,
-        // Silence "unused" warnings — the IIFE captures these via lexical scope
-        // but some builds strip unused imports. Touch them so they stay live.
-        `void React; void ReactDOM; void _jsx_runtime;`,
-        stripped,
+        `const Component = (function () {\n${compiled.body}\n})(_jsx_runtime)`,
         `export default Component.default`,
         `export const frontmatter = ${JSON.stringify(compiled.frontmatter)}`,
+    ].join('\n')
+}
+
+/**
+ * The mobile app evaluates this with
+ * `new Function('React', 'ReactDOM', '_jsx_runtime', code)` and reads
+ * `default` and `frontmatter` off the result. Installed apps pass that fixed
+ * signature, so it can't change; the body only uses the JSX runtime.
+ */
+function toAppCode(compiled: CompiledMdx): string {
+    return [
+        `var Component = (function () {\n${compiled.body}\n})(_jsx_runtime);`,
+        `Component.frontmatter = ${JSON.stringify(compiled.frontmatter)};`,
+        `return Component;`,
     ].join('\n')
 }
 
@@ -296,7 +294,7 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
         const cached = compileCache.get(filePath)
         if (cached) return cached
         const source = await readFile(filePath, 'utf-8')
-        const compiled = await compileOne(slug, source)
+        const compiled = await compileOne(filePath, source)
         compileCache.set(filePath, compiled)
         return compiled
     }
@@ -376,7 +374,7 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
             const codeParsed = parseCodeId(id)
             if (codeParsed) {
                 const compiled = await loadCompiled(codeParsed.type, codeParsed.slug)
-                return `export default ${JSON.stringify(compiled.code)}`
+                return `export default ${JSON.stringify(toAppCode(compiled))}`
             }
             const parsed = parseItemId(id)
             if (!parsed) return
