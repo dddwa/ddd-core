@@ -14,7 +14,7 @@ This is the other half of `/core-pull`. The normal cycle is: build the change in
 `git subtree split --prefix=core` genuinely works — it re-roots the fork's `core/` history so upstream's HEAD is an ancestor, and the result fast-forwards onto `ddd-core/main`. **Do not use it to publish.** The split carries the fork's *entire* `core/` tree, which includes deliberate fork-local divergence that must never reach upstream:
 
 - **Visual regression baselines** (`website/e2e/__screenshots__/`) are rendered with the fork's theme, fonts and sponsor logos. Upstream has its own stub-branded set. A split overwrites 63 upstream baselines with conference-branded screenshots.
-- **`nx.json` and `vitest.workspace.ts` are deleted in forks** per the `merge=ours` rule; upstream needs them.
+- **`nx.json` is deleted in forks** per the `merge=ours` rule; upstream needs it.
 - **`website/project.json`, `website/tsconfig.json`, `website/vite.config.ts`, `e2e/routes.ts`** carry fork-shape overrides applied by `/new-conference`.
 
 So: take the *source* changes, leave the fork's environment behind.
@@ -125,7 +125,7 @@ SPLIT=$(git -C <fork> subtree split --prefix=core "$AFTER" 2>/dev/null | tail -1
 git diff --stat "$SPLIT" HEAD
 ```
 
-Expect: baselines, `nx.json`, `vitest.workspace.ts`, and the fork-shape config
+Expect: baselines, `nx.json`, and the fork-shape config
 files. Anything else in that list is something you either forgot to upstream or
 shouldn't have.
 
