@@ -100,7 +100,7 @@ export function meta(args: Route.MetaArgs) {
 export default function BlogPost() {
     const { slug, frontmatter, blogAuthors, conferenceState } = useLoaderData<typeof loader>()
     const mdRef = useRef<HTMLDivElement>(null)
-    const Component = useMdxPage(slug, 'blog', conferenceState)
+    const content = useMdxPage(slug, 'blog', conferenceState)
 
     return (
         <ContentPageLayout>
@@ -160,7 +160,7 @@ export default function BlogPost() {
                 ) : null}
 
                 <Box ref={mdRef} className={prose({ size: 'lg' })}>
-                    <Component />
+                    {content}
                 </Box>
             </styled.article>
         </ContentPageLayout>

@@ -197,7 +197,7 @@ export default function WebsiteContentPage() {
         sponsorPageData,
         ticketSponsors,
     } = useLoaderData<typeof loader>()
-    const Component = useMdxPage(slug, 'page', conferenceState, ticketSponsors)
+    const content = useMdxPage(slug, 'page', conferenceState, ticketSponsors, { sponsors: sponsorPageData })
 
     const draftBanner = frontmatter.draft ? (
         <div>🚨 This is a draft, please do not share this page until it&apos;s officially published 🚨</div>
@@ -208,7 +208,7 @@ export default function WebsiteContentPage() {
             <>
                 {draftBanner}
                 <PageLayout minHeight="100vh">
-                    <Component sponsors={sponsorPageData} />
+                    {content}
                 </PageLayout>
             </>
         )
@@ -225,7 +225,7 @@ export default function WebsiteContentPage() {
                     currentDate={conferenceTime(currentDate)}
                     importantDates={importantDates}
                 >
-                    <Component sponsors={sponsorPageData} />
+                    {content}
                 </ContentPageWithSidebar>
             </ContentPageLayout>
         </>

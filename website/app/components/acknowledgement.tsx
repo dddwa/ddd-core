@@ -25,13 +25,13 @@ export function Acknowledgement({ conferenceState }: { conferenceState?: Confere
 }
 
 function AcknowledgementBody({ slug, conferenceState }: { slug: string; conferenceState: ConferenceState }) {
-    const Body = useMdxPage(slug, 'page', conferenceState)
+    const body = useMdxPage(slug, 'page', conferenceState)
     return (
         <Box pt="12" pb={{ base: '12', md: '24' }} bgGradient="to-b" mx="5" color="text.primary">
             <Flex direction="column" gap="6" maxW="breakpoint-2xl" mx="auto">
                 <Divider color="border.subtle" mb="6" />
                 <AboriginalLogo width={58} />
-                <Body />
+                {body}
             </Flex>
         </Box>
     )

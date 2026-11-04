@@ -1,8 +1,8 @@
 import type { Temporal } from '~/lib/dates/temporal'
 import { conferenceTime } from '~/lib/dates/temporal'
 import type { MDXComponents } from 'mdx/types'
-import type { ComponentType } from 'react'
-import { use } from 'react'
+import type { ComponentType, ReactElement } from 'react'
+import { use, useMemo } from 'react'
 import bundles from 'virtual:mdx-bundles'
 import { MdxImage } from '~/components/mdx-image'
 import {
@@ -48,15 +48,21 @@ export function useMdxPage(
     type: ContentType,
     conferenceState: ConferenceState,
     ticketSponsors?: MdxSponsorContext,
-) {
+    props?: Record<string, unknown>,
+): ReactElement {
     const entry = bundles[type][slug]
     if (!entry) throw new Error(`[mdx] Unknown ${type}: ${slug}`)
     const mod = use(entry.load())
-    return wrapMdxComponent(
-        mod.default as ComponentType<Record<string, unknown>>,
-        conferenceState,
-        ticketSponsors,
+    // Memoised so the wrapper keeps one identity across re-renders. A fresh
+    // function each render is a different component type to React, which
+    // remounts the whole MDX tree and drops any state inside it.
+    const MdxPage = useMemo(
+        () => wrapMdxComponent(mod.default as ComponentType<Record<string, unknown>>, conferenceState, ticketSponsors),
+        [mod.default, conferenceState, ticketSponsors],
     )
+    // Returned as an element rather than the component, so no caller renders
+    // a component that came out of a hook.
+    return <MdxPage {...props} />
 }
 
 function wrapMdxComponent(
