@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures/test'
 import { FIXTURE_SPONSOR_NAME } from './fixtures/sponsors'
 import { HEADER_DATE_STATES, ROUTES, VISUAL_EXPECTED_DAYS_LEFT, VISUAL_MASK_SELECTORS } from './routes'
 

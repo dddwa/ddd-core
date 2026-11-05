@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures/test'
 import { FIXTURE_CONFERENCE_COOKIE, FIXTURE_YEAR } from './fixtures/conference-year'
 import { FIXTURE_DATE } from './fixtures/sessionize/model'
 
