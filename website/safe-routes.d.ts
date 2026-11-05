@@ -158,10 +158,6 @@ declare module "safe-routes" {
       params: never,
       query: ExportedQuery<import('app/routes/api.voting.vote.js').SearchParams>,
     },
-    "/app": {
-      params: never,
-      query: ExportedQuery<import('app/routes/_layout.app.js').SearchParams>,
-    },
     "/auth/login": {
       params: never,
       query: ExportedQuery<import('app/routes/auth.login.js').SearchParams>,
@@ -293,7 +289,6 @@ declare module "safe-routes" {
             | 'routes/_layout._index'
             | 'routes/_layout.voting'
             | 'routes/_layout.share'
-            | 'routes/_layout.app'
             | 'routes/_layout.$'
             | 'routes/admin'
             | 'routes/admin.voting-validation.stats.$runId'

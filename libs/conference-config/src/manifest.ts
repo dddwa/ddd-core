@@ -272,26 +272,6 @@ export interface NavItem {
 export type NavConfig = NavItem[]
 
 /**
- * Optional mobile app advertising. When set, /app is reachable and links to
- * the app stores. When absent, /app returns 404 (most forks don't have a
- * mobile app and shouldn't surface a dead route).
- *
- * Set `retired` once the app is no longer maintained, and /app 404s like a
- * fork with no app at all. The endpoints the installed copies poll are the
- * fork's own (`conference/routes/`), and must keep answering regardless:
- * retiring stops the advertising, not the app.
- */
-export interface MobileApp {
-    iosUrl: string
-    androidUrl: string
-    /** For the fork's own app endpoints; core doesn't read these. */
-    iosBundleId?: string
-    androidBundleId?: string
-    /** Stops the website advertising the app: /app 404s. */
-    retired?: boolean
-}
-
-/**
  * Jira wiring for the sponsor portal sync. All values are fork-owned config
  * — field ids and option ids differ per Jira site, so nothing here can live
  * in core. Credentials are NOT here; they're host secrets (wrangler
@@ -804,8 +784,6 @@ export interface ConferenceManifest {
     nav: NavConfig
     /** Fork-supplied homepage content. Optional — sensible fallbacks exist. */
     homepage?: HomepageContentSlots
-    /** Mobile app config. Omit for forks without an app — /app returns 404 then. */
-    mobileApp?: MobileApp
     /** Public volunteer run sheet. Omit for forks without one — /runsheets returns 404 then. */
     runsheets?: RunsheetsConfig
     /** Sponsor portal config. Omit for forks without one — /sponsor-portal returns 404 then. */

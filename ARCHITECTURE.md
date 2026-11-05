@@ -101,8 +101,7 @@ D1 database names are duplicated between the wrangler files and `build-manifest.
 | New page added for one conference only | `conference/content/pages/<slug>.mdx` (auto-discovered by mdx-bundles) |
 | Hero blurb on the homepage | `conference/content/pages/_home-hero.mdx`, referenced by `manifest.homepage.heroBlurbSlug` |
 | Country / land acknowledgement | `conference/content/pages/_acknowledgement.mdx`, referenced by `manifest.homepage.acknowledgementSlug` |
-| Mobile app download page (`/app`) | `manifest.mobileApp` (iOS + Android URLs). Omit it, or set `mobileApp.retired`, to 404 the route |
-| Endpoints a fork's mobile app polls | `conference/routes/` (DDD Perth: `/app-config`, `/app-content/*`, `/app-announcements`, `/app-agenda-*`) |
+| A fork's mobile app (download page, the endpoints it polls) | `conference/routes/`. Core has no mobile-app support |
 | New manifest field | `core/libs/conference-config/src/manifest.ts` (interface) + every fork's `conference/manifest.ts` (value) |
 | D1 migration | `core/website/migrations/` (schema is core; data is per-fork at runtime) |
 | Sessionize/Tito secret | env var (set per environment via `wrangler secret put`) |
@@ -115,10 +114,6 @@ The runtime manifest has two opt-in slots for fork-owned MDX rendered by core co
 - `homepage.acknowledgementSlug` — MDX rendered as the footer Country acknowledgement. Without this slug, the section doesn't render — appropriate for forks in regions without Country acknowledgement conventions.
 
 Slugs starting with `_` are excluded from the sitemap and the catchall route (they're fragments embedded in other pages, not navigable pages).
-
-Mobile-app advertising follows a different pattern — `manifest.mobileApp` either exists (`/app` renders) or doesn't (`/app` 404s). No fallback rendering, because pointing visitors at a non-existent app is worse than no link at all. Setting `mobileApp.retired` 404s `/app` too, for an app that's still in the stores but no longer maintained.
-
-The endpoints an installed app polls aren't core's. A fork with an app serves them from `conference/routes/` (below), and they must keep answering after the app is retired, because the copies on people's phones still call them on launch.
 
 ### Fork-owned routes
 
