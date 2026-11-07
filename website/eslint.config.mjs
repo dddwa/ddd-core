@@ -98,7 +98,6 @@ export default [
                         'vite',
                         '@react-router/dev',
                         '@pandacss/dev',
-                        'pandacss-preset-typography',
                         '@types/mdx', // `mdx/types` is a type-only import; nothing ships at runtime.
                         'vitest',
                         'read-excel-file', // Independent XLSX reader for tests only; keep out of production dependencies.
