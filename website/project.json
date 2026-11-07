@@ -25,7 +25,7 @@
         "panda": {
             "executor": "nx:run-commands",
             "options": {
-                "command": [
+                "commands": [
                     {
                         "command": "pnpm panda",
                         "forwardAllArgs": true
