@@ -29,7 +29,3 @@ allowBuilds:
     nx: true
     sharp: true
     workerd: true
-
-# mdx-bundler (already at its latest, 10.1.1) pins uuid 9.
-allowedDeprecatedVersions:
-    uuid: '9'

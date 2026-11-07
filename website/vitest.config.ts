@@ -17,6 +17,8 @@ if (!buildManifestPath) {
 }
 
 const { conferenceBuildManifest } = (await import(buildManifestPath)) as { conferenceBuildManifest: ConferenceBuildManifest }
+// The conference layer's own routes (see app/routes.ts) are tested with the app.
+const conferenceRoutes = path.relative(import.meta.dirname, path.join(path.dirname(buildManifestPath), 'routes'))
 
 export default defineConfig({
     root: import.meta.dirname,
@@ -43,7 +45,10 @@ export default defineConfig({
         watch: false,
         globals: false,
         environment: 'node',
-        include: ['app/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+        include: [
+            'app/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+            `${conferenceRoutes}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}`,
+        ],
         reporters: ['default'],
         coverage: {
             reportsDirectory: '../coverage/website',

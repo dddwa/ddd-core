@@ -1,38 +1,33 @@
 import { rehypeCodeBlocksShiki } from '@kentcdodds/md-temp'
+import { compile } from '@mdx-js/mdx'
 import remarkEmbedder, { type Transformer, type TransformerInfo } from '@remark-embedder/core'
 import oembedTransformer from '@remark-embedder/transformer-oembed'
 import type * as H from 'hast'
 import type { MdxJsxFlowElement } from 'mdast-util-mdx-jsx'
-import { bundleMDX } from 'mdx-bundler'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import PQueue from 'p-queue'
 import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 import rehypeSlug from 'rehype-slug'
+import remarkFrontmatter from 'remark-frontmatter'
 import gfm from 'remark-gfm'
 import type * as U from 'unified'
 import { visit } from 'unist-util-visit'
+import { VFile } from 'vfile'
 import type { Plugin } from 'vite'
+import { parse as parseYaml } from 'yaml'
 
 // Why two virtual modules:
 //
-// `virtual:mdx-bundles` is the index — it re-exports every compiled MDX entry
-// as a lazy import. We can't `new Function(code)` at request time because
-// workerd (Cloudflare Workers) disallows eval, so each MDX file becomes its
-// own ESM module at `virtual:mdx-bundle/<type>/<slug>` with a proper `export
-// default` component. The index wires them together so the app keeps a single
+// `virtual:mdx-bundles` is the index. It inlines every entry's frontmatter,
+// because listings need it synchronously, and lazily imports each component
+// from its own module at `virtual:mdx-bundle/<type>/<slug>`, so a page only
+// loads its own content. The app keeps a single
 // `import bundles from 'virtual:mdx-bundles'` entry point.
 const INDEX_ID = 'virtual:mdx-bundles'
 const INDEX_RESOLVED = '\0virtual:mdx-bundles'
 const ITEM_PREFIX = 'virtual:mdx-bundle/'
 const ITEM_RESOLVED_PREFIX = '\0virtual:mdx-bundle/'
-// Third virtual module type: exposes the original mdx-bundler IIFE as a
-// string for the public app-content API. The React Native app evaluates it
-// with `new Function('React','ReactDOM','_jsx_runtime', code)` — a contract
-// the worker can't honor itself (workerd forbids eval) but external clients
-// can.
-const CODE_PREFIX = 'virtual:mdx-code/'
-const CODE_RESOLVED_PREFIX = '\0virtual:mdx-code/'
 // The blog authors YAML, as a raw string. Served from the same plugin as the
 // posts so the two always come from the same place — the e2e suites swap both
 // for fixtures together (see `vite.config.ts`).
@@ -42,7 +37,7 @@ const AUTHORS_RESOLVED = '\0virtual:blog-authors'
 type ContentType = 'page' | 'blog'
 
 interface CompiledMdx {
-    code: string
+    module: string
     frontmatter: Record<string, unknown>
 }
 
@@ -157,37 +152,27 @@ const rehypePlugins: U.PluggableList = [removeDoublePInDetails, trimCodeBlocks, 
 
 const queue = new PQueue({ concurrency: 1, timeout: 1000 * 30 })
 
-async function compileOne(slug: string, source: string): Promise<CompiledMdx> {
-    try {
-        const result = await queue.add(() =>
-            bundleMDX({
-                source,
-                mdxOptions(options) {
-                    options.remarkPlugins = [...(options.remarkPlugins ?? []), gfm, ...remarkPlugins]
-                    options.rehypePlugins = [
-                        ...(options.rehypePlugins ?? []),
-                        rehypeSlug,
-                        [rehypeAutolinkHeadings, { behavior: 'wrap' }],
-                        ...rehypePlugins,
-                    ]
-                    return options
-                },
-            }),
-        )
-        if (!result) throw new Error(`Failed to compile ${slug}`)
-        return { code: result.code, frontmatter: result.frontmatter }
-    } catch (err) {
-        // esbuild wraps the real cause inside errors[].detail.cause — surface it
-        // so build failures point at the offending content instead of the generic
-        // "Cannot process MDX file with esbuild" message.
-         
-        const e = err as any
-        const inner = e?.errors?.[0]?.detail?.cause
-        if (inner) {
-            console.error(`[mdx-bundles] Failed to compile "${slug}":`, inner)
-        }
-        throw err
+// The timestamp tag makes a bare `date: 2024-05-01` a Date, which serialises
+// to the full ISO string the content service and the mobile app expect.
+function remarkFrontmatterData() {
+    return function frontmatterData(tree: { children: Array<{ type: string; value?: string }> }, file: VFile) {
+        const [first] = tree.children
+        const data: unknown = first?.type === 'yaml' ? parseYaml(first.value ?? '', { customTags: ['timestamp'] }) : null
+        file.data.frontmatter = data ?? {}
     }
+}
+
+async function compileOne(filePath: string, source: string): Promise<CompiledMdx> {
+    const file = new VFile({ path: filePath, value: source })
+    const result = await queue.add(() =>
+        compile(file, {
+            // `.md` posts too, so they can use the same JSX components.
+            format: 'mdx',
+            remarkPlugins: [remarkFrontmatter, remarkFrontmatterData, gfm, ...remarkPlugins],
+            rehypePlugins: [rehypeSlug, [rehypeAutolinkHeadings, { behavior: 'wrap' }], ...rehypePlugins],
+        }),
+    )
+    return { module: String(result), frontmatter: result.data.frontmatter as Record<string, unknown> }
 }
 
 async function readContentDir(absDir: string, extensions: string[]): Promise<Array<{ slug: string; filePath: string }>> {
@@ -218,47 +203,13 @@ export interface MdxBundlesOptions {
     blogAuthorsFile: string
 }
 
-/**
- * The output of `bundleMDX` is an IIFE that ends with `;return Component;` —
- * designed to be fed into `new Function(...scopeVars, code)`. Workerd forbids
- * `new Function` and `eval`, so we rewrite the IIFE into a proper ESM module:
- * prepend the scope vars as real imports, strip the trailing `return`, and
- * re-export `Component.default` (the component) plus the frontmatter.
- */
 function toEsmModule(compiled: CompiledMdx): string {
-    // The emitted code looks like:
-    //   var Component=(()=>{ ...references _jsx_runtime/React/ReactDOM... })();
-    //   ;return Component;
-    // We drop the trailing `;return Component;`. `Component` is now a module-
-    // scoped const holding `{ default, frontmatter }`.
-    const stripped = compiled.code.replace(/;\s*return Component;\s*$/, '')
-    return [
-        `import * as React from 'react'`,
-        `import * as ReactDOM from 'react-dom'`,
-        `import * as _jsx_runtime from 'react/jsx-runtime'`,
-        // Silence "unused" warnings — the IIFE captures these via lexical scope
-        // but some builds strip unused imports. Touch them so they stay live.
-        `void React; void ReactDOM; void _jsx_runtime;`,
-        stripped,
-        `export default Component.default`,
-        `export const frontmatter = ${JSON.stringify(compiled.frontmatter)}`,
-    ].join('\n')
+    return `${compiled.module}\nexport const frontmatter = ${JSON.stringify(compiled.frontmatter)}\n`
 }
 
 function parseItemId(id: string): { type: ContentType; slug: string } | null {
     if (!id.startsWith(ITEM_RESOLVED_PREFIX)) return null
     const rest = id.slice(ITEM_RESOLVED_PREFIX.length)
-    const slashIdx = rest.indexOf('/')
-    if (slashIdx < 0) return null
-    const type = rest.slice(0, slashIdx) as ContentType
-    const slug = rest.slice(slashIdx + 1)
-    if (type !== 'page' && type !== 'blog') return null
-    return { type, slug }
-}
-
-function parseCodeId(id: string): { type: ContentType; slug: string } | null {
-    if (!id.startsWith(CODE_RESOLVED_PREFIX)) return null
-    const rest = id.slice(CODE_RESOLVED_PREFIX.length)
     const slashIdx = rest.indexOf('/')
     if (slashIdx < 0) return null
     const type = rest.slice(0, slashIdx) as ContentType
@@ -296,7 +247,7 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
         const cached = compileCache.get(filePath)
         if (cached) return cached
         const source = await readFile(filePath, 'utf-8')
-        const compiled = await compileOne(slug, source)
+        const compiled = await compileOne(filePath, source)
         compileCache.set(filePath, compiled)
         return compiled
     }
@@ -322,14 +273,11 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
                 slugs.map(async (slug) => {
                     const { frontmatter } = await loadCompiled(type, slug)
                     const importId = `${ITEM_PREFIX}${type}/${slug}`
-                    const codeImportId = `${CODE_PREFIX}${type}/${slug}`
                     const cacheKey = `${type}/${slug}`
-                    const codeCacheKey = `code:${type}/${slug}`
                     return (
                         `  ${JSON.stringify(slug)}: {\n` +
                         `    frontmatter: ${JSON.stringify(frontmatter)},\n` +
                         `    load: () => (__mdxLoadCache[${JSON.stringify(cacheKey)}] ??= import(${JSON.stringify(importId)})),\n` +
-                        `    code: () => (__mdxLoadCache[${JSON.stringify(codeCacheKey)}] ??= import(${JSON.stringify(codeImportId)}).then(m => m.default)),\n` +
                         `  }`
                     )
                 }),
@@ -361,7 +309,6 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
             if (id === INDEX_ID) return INDEX_RESOLVED
             if (id === AUTHORS_ID) return AUTHORS_RESOLVED
             if (id.startsWith(ITEM_PREFIX)) return '\0' + id
-            if (id.startsWith(CODE_PREFIX)) return '\0' + id
         },
 
         async load(id) {
@@ -372,11 +319,6 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
             if (id === AUTHORS_RESOLVED) {
                 this.addWatchFile(blogAuthorsFile)
                 return `export default ${JSON.stringify(await readFile(blogAuthorsFile, 'utf-8'))}`
-            }
-            const codeParsed = parseCodeId(id)
-            if (codeParsed) {
-                const compiled = await loadCompiled(codeParsed.type, codeParsed.slug)
-                return `export default ${JSON.stringify(compiled.code)}`
             }
             const parsed = parseItemId(id)
             if (!parsed) return
@@ -407,7 +349,6 @@ export function mdxBundlesPlugin({ pagesDir, blogDir, blogAuthorsFile }: MdxBund
                     for (const [slug, fp] of map) {
                         if (fp === filePath) {
                             modsToInvalidate.push(`\0${ITEM_PREFIX}${type}/${slug}`)
-                            modsToInvalidate.push(`\0${CODE_PREFIX}${type}/${slug}`)
                         }
                     }
                 }

@@ -16,7 +16,6 @@ declare module 'virtual:mdx-bundles' {
     export interface MdxBundleEntry {
         frontmatter: Record<string, unknown>
         load: () => Promise<MdxBundleModule>
-        code: () => Promise<string>
     }
     const bundles: {
         page: Record<string, MdxBundleEntry>

@@ -272,40 +272,6 @@ export interface NavItem {
 export type NavConfig = NavItem[]
 
 /**
- * Optional mobile app advertising. When set, /app is reachable and links to
- * the app stores. When absent, /app returns 404 (most forks don't have a
- * mobile app and shouldn't surface a dead route).
- *
- * `retired` splits those two behaviours apart. A fork that has stopped
- * maintaining its app still has copies installed on people's phones, and
- * those copies poll /app-config on launch — so the endpoint must keep
- * answering even once the website stops advertising the app. Set `retired`
- * and /app 404s like a fork with no app at all, while /app-config continues
- * to serve and carries a `notice` telling the app to point its users back
- * at the website.
- */
-export interface MobileApp {
-    iosUrl: string
-    androidUrl: string
-    /** Bundle ID surfaced via /app-config to the mobile app itself. */
-    iosBundleId?: string
-    androidBundleId?: string
-    /**
-     * Set once the app is no longer maintained. Stops the website
-     * advertising it (/app 404s, store links disappear) without cutting off
-     * the installed copies that still depend on /app-config.
-     *
-     * Deliberately a bare flag and not a place to put banner copy. Telling
-     * the app's remaining users anything is what `/app-announcements`
-     * already does, and that channel has the decisive advantage: the
-     * installed builds already know how to render it. A new config field
-     * would only reach a build shipped after it was added — which, for an
-     * app nobody is rebuilding, is no one.
-     */
-    retired?: boolean
-}
-
-/**
  * Jira wiring for the sponsor portal sync. All values are fork-owned config
  * — field ids and option ids differ per Jira site, so nothing here can live
  * in core. Credentials are NOT here; they're host secrets (wrangler
@@ -818,8 +784,6 @@ export interface ConferenceManifest {
     nav: NavConfig
     /** Fork-supplied homepage content. Optional — sensible fallbacks exist. */
     homepage?: HomepageContentSlots
-    /** Mobile app config. Omit for forks without an app — /app returns 404 then. */
-    mobileApp?: MobileApp
     /** Public volunteer run sheet. Omit for forks without one — /runsheets returns 404 then. */
     runsheets?: RunsheetsConfig
     /** Sponsor portal config. Omit for forks without one — /sponsor-portal returns 404 then. */

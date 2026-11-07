@@ -34,7 +34,6 @@ export type {
     ContentPaths,
     DeploymentConfig,
     HomepageContentSlots,
-    MobileApp,
     MeetTheExpertsConfig,
     MeetTheExpertsSlotConfig,
     NavConfig,

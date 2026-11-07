@@ -25,23 +25,21 @@ function coerceFrontmatter(frontmatter: Record<string, unknown>): FrontmatterPro
 }
 
 /**
- * MDX-bundler-backed content service. The `bundles` virtual import is a
+ * MDX-backed content service. The `bundles` virtual import is a
  * Vite plugin output so it isn't Cloudflare-specific.
  */
 export function createMdxContentService(): ContentService {
     return {
-        async getPage(slug, type, options = {}): Promise<ContentPage | null> {
+        async getPage(slug, type): Promise<ContentPage | null> {
             const entry = bundles[type][slug]
             if (!entry) return null
 
             const frontmatter = coerceFrontmatter(entry.frontmatter)
-            const code = options.includeCode ? await entry.code() : undefined
 
             return {
                 frontmatter,
                 slug,
                 type,
-                code,
                 dateDisplay: frontmatter.date ? formatDate(frontmatter.date) : undefined,
             }
         },
