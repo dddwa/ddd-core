@@ -121,7 +121,7 @@ jobs:
         # so baselines are generated and verified in one environment.
         runs-on: ubuntu-latest
         container:
-            image: mcr.microsoft.com/playwright:v1.62.1-noble
+            image: mcr.microsoft.com/playwright:v1.64.1-noble
             # The image runs as root; without this, pnpm's store and the
             # bind-mounted workspace end up with mismatched ownership.
             options: --user root
