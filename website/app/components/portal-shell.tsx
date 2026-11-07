@@ -170,7 +170,7 @@ export function PortalShell({
                 {children}
             </styled.main>
 
-            {footer && (
+            {footer ? (
                 <styled.footer
                     px={{ base: '4', md: '8' }}
                     pb="8"
@@ -180,7 +180,7 @@ export function PortalShell({
                 >
                     {footer}
                 </styled.footer>
-            )}
+            ) : null}
         </Flex>
     )
 }

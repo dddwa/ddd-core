@@ -96,6 +96,5 @@ function HeroBlurb({ conferenceState }: { conferenceState: ConferenceState }) {
 }
 
 function HeroBlurbMdx({ slug, conferenceState }: { slug: string; conferenceState: ConferenceState }) {
-    const Body = useMdxPage(slug, 'page', conferenceState)
-    return <Body />
+    return useMdxPage(slug, 'page', conferenceState)
 }

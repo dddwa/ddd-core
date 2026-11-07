@@ -24,22 +24,11 @@
             }
         },
         {
-            "plugin": "@nx/vite/plugin",
+            "plugin": "@nx/js/typescript",
             "options": {
-                "buildTargetName": "vite:build",
-                "serveTargetName": "vite:serve",
-                "devTargetName": "dev",
-                "previewTargetName": "preview",
-                "serveStaticTargetName": "serve-static",
-                "typecheckTargetName": "typecheck",
-                "buildDepsTargetName": "build-deps",
-                "watchDepsTargetName": "watch-deps"
-            }
-        },
-        {
-            "plugin": "@nx/vitest",
-            "options": {
-                "testTargetName": "test"
+                "typecheck": {
+                    "targetName": "typecheck"
+                }
             }
         }
     ],
@@ -50,7 +39,20 @@
                 "^default",
                 "{workspaceRoot}/eslint.config.mjs",
                 "{workspaceRoot}/eslint-rules/**/*",
-                { "externalDependencies": ["eslint"] }
+                {
+                    "externalDependencies": ["eslint"]
+                }
+            ]
+        },
+        "typecheck": {
+            "// inputs": "`default`, not the inferred `production`: each tsconfig includes the test files, so a type error in a test must miss the cache.",
+            "inputs": [
+                "default",
+                "^production",
+                "{workspaceRoot}/tsconfig.base.json",
+                {
+                    "externalDependencies": ["typescript"]
+                }
             ]
         }
     },
@@ -58,5 +60,8 @@
         "infra": "infra-archive"
     },
     "neverConnectToCloud": true,
-    "analytics": false
+    "analytics": false,
+    "affected": {
+        "legacy": true
+    }
 }

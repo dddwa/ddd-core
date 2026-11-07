@@ -2,8 +2,13 @@ import ts from 'typescript-eslint'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { ESLint, Linter, RuleTester } from 'eslint'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import plugin from '../../../../eslint-rules/date-time.mjs'
+
+// The typed cases each start a TypeScript project service from cold: a
+// couple of seconds alone, past vitest's 5s default when lint and e2e share
+// the machine.
+vi.setConfig({ testTimeout: 30_000 })
 
 RuleTester.describe = describe
 RuleTester.it = it

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures/test'
 import { DATE_DEPENDENT_ROUTES } from './routes'
 
 /**

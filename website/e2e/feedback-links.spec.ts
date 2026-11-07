@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, type Page, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expect, test } from './fixtures/test'
 import { FIXTURE_CONFERENCE_COOKIE, FIXTURE_YEAR } from './fixtures/conference-year'
 import { FIXTURE_DATE } from './fixtures/sessionize/model'
 

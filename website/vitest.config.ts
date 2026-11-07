@@ -22,7 +22,19 @@ export default defineConfig({
     root: import.meta.dirname,
     // So components that import `*.svg?react` (logos, icons) can render in
     // tests. JSX only — svgo's id prefixing in vite.config.ts doesn't matter here.
-    plugins: [conferenceBrandPlugin(conferenceBuildManifest.brandAssets), svgr()],
+    plugins: [
+        conferenceBrandPlugin(conferenceBuildManifest.brandAssets),
+        svgr(),
+        // The real plugin compiles every MDX file, which tests don't want.
+        // Without some module here, jsdom tests can't import anything that
+        // imports this, even when they vi.mock it: the import has to resolve
+        // before the mock replaces it.
+        {
+            name: 'mdx-bundles-test-stub',
+            resolveId: (id) => (id === 'virtual:mdx-bundles' ? '\0virtual:mdx-bundles' : undefined),
+            load: (id) => (id === '\0virtual:mdx-bundles' ? 'export default { page: {}, blog: {} }' : undefined),
+        },
+    ],
     resolve: {
         tsconfigPaths: true,
         dedupe: ['react', 'react-dom', 'react-router', 'react-router/dom'],

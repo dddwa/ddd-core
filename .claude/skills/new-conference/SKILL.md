@@ -220,7 +220,7 @@ sed -i '' \
 rm core/nx.json
 ```
 
-Other in-core root configs (`core/eslint.config.mjs`, `core/tsconfig.base.json`, `core/package.json`, `core/pnpm-workspace.yaml`, `core/vitest.workspace.ts`, `core/tsconfig.json`) **must stay** — files inside `core/` reference them with relative paths (e.g. `core/website/eslint.config.mjs` does `import '../eslint.config.mjs'`).
+Other in-core root configs (`core/eslint.config.mjs`, `core/tsconfig.base.json`, `core/package.json`, `core/pnpm-workspace.yaml`, `core/vitest.config.ts`, `core/tsconfig.json`) **must stay** — files inside `core/` reference them with relative paths (e.g. `core/website/eslint.config.mjs` does `import '../eslint.config.mjs'`).
 
 These edits happen inside `core/` but **don't conflict with future `git subtree pull`s** as long as core's upstream defaults don't change. If upstream ever moves the path aliases or renames project.json targets, the user will get a one-time merge conflict during `/core-pull` and fix it by re-applying these overrides. Step 7's `.gitattributes` keeps `core/nx.json` deleted across pulls.
 
@@ -235,7 +235,7 @@ cp core/package.json package.json               # then: set "name" to ${SLUG}
 cp core/nx.json nx.json                          # workspace config (core/nx.json is deleted in step 6)
 cp core/tsconfig.base.json tsconfig.base.json    # conference/tsconfig.json extends ../tsconfig.base.json
 cp core/eslint.config.mjs eslint.config.mjs      # then: add the allow rule (below)
-cp core/vitest.workspace.ts vitest.workspace.ts  # then: ['website'] -> ['core/website']
+cp core/vitest.config.ts vitest.config.ts        # then: projects ['website'] -> ['core/website']
 cp core/.gitignore .gitignore                    # already covers node_modules, .nx, conference/wrangler/.dev.vars
 cp core/.npmrc core/.prettierrc core/.prettierignore core/.editorconfig .  # pnpm + editor/formatter config
 
@@ -253,7 +253,7 @@ Then adjust the copies and generate the genuinely-new files:
 - `nx.json` — keep as the workspace config. Drop any dangling manual `projects` mapping (e.g. `"infra": "infra-archive"`) if that path doesn't exist in the fork, so `nx run-many --all` doesn't trip on it.
 - `pnpm-workspace.yaml` — generate: `core/website`, `core/libs/*`, `conference` (core's lists the standalone paths)
 - `tsconfig.json` — generate minimal: `{ "extends": "./core/tsconfig.base.json" }`. The `@conference/*` aliases live in `core/website/tsconfig.json` (step 6), not here. **Keep the fork-root `tsconfig.base.json`** so `conference/tsconfig.json`'s `../tsconfig.base.json` resolves.
-- `vitest.workspace.ts` — `export default ['core/website']`
+- `vitest.config.ts` — `test.projects: ['core/website']`. Only the IDE and a bare `vitest` at the fork root read it; `nx test website` uses `core/website/vitest.config.ts`.
 - `eslint.config.mjs` — add the `enforce-module-boundaries` allow rule (below)
 - `.gitattributes` — keeps stub + nx.json out of subtree pulls (below)
 - `.nxignore` — excludes the embedded stub + core's package.json from Nx project discovery (below)
@@ -372,9 +372,9 @@ Sometimes the fork repo already exists as a *flat* ddd-core clone — e.g. someo
 1. **Confirm it's safe to flatten.** `git fetch upstream && git diff --stat upstream/main HEAD` — if HEAD matches `upstream/main`, the root content is just ddd-core and nothing fork-specific is lost. If it differs, the repo has local commits; upstream or reconcile them first.
 2. **Tag a restore point:** `git tag pre-fork-restructure`.
 3. **Add the `ddd-core` remote** for `/core-pull`: `git remote add ddd-core <url>` (or reuse the existing `upstream`, which already points at ddd-core — subtree tracks by commit, not remote name).
-4. **Remove the flat ddd-core source from the root**, keeping `.git`, the workspace configs, and any fork-owned files: `git rm -r website libs conference-stub docs ARCHITECTURE.md README.md pnpm-lock.yaml` (and root `CLAUDE.md` if you'll write a fork-specific one), then commit. **Keep** `package.json`, `nx.json`, `pnpm-workspace.yaml`, `tsconfig*.json`, `eslint.config.mjs`, `vitest.workspace.ts`, `.gitignore`, `.npmrc`, `.prettier*`, `.editorconfig`, `.claude/` — you'll edit these in step 7 rather than `cp` them up from `core/`.
+4. **Remove the flat ddd-core source from the root**, keeping `.git`, the workspace configs, and any fork-owned files: `git rm -r website libs conference-stub docs ARCHITECTURE.md README.md pnpm-lock.yaml` (and root `CLAUDE.md` if you'll write a fork-specific one), then commit. **Keep** `package.json`, `nx.json`, `pnpm-workspace.yaml`, `tsconfig*.json`, `eslint.config.mjs`, `vitest.config.ts`, `.gitignore`, `.npmrc`, `.prettier*`, `.editorconfig`, `.claude/` — you'll edit these in step 7 rather than `cp` them up from `core/`.
 5. **Embed core as a subtree:** `git subtree add --prefix=core upstream main --squash`. Because HEAD == upstream/main, `core/` ends up byte-identical to what was at the root.
-6. Follow steps 5–8 as normal. In step 7, **edit the kept root configs** instead of copying them up: rename `package.json`'s `name`, repoint `pnpm-workspace.yaml`, point `tsconfig.json` at `core/`, add the eslint allow rule, set `vitest.workspace.ts` to `['core/website']`, replace the kept `.claude/skills/{core-pull,core-push,new-conference}` directories with the symlinks from step 7, and (still per step 6) delete `core/nx.json`.
+6. Follow steps 5–8 as normal. In step 7, **edit the kept root configs** instead of copying them up: rename `package.json`'s `name`, repoint `pnpm-workspace.yaml`, point `tsconfig.json` at `core/`, add the eslint allow rule, set `vitest.config.ts`'s `projects` to `['core/website']`, replace the kept `.claude/skills/{core-pull,core-push,new-conference}` directories with the symlinks from step 7, and (still per step 6) delete `core/nx.json`.
 
 Removing root source then re-adding it under `core/` is destructive — always tag first and confirm `git diff --stat upstream/main HEAD` is empty before deleting.
 

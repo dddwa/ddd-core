@@ -82,7 +82,7 @@ export default function Index() {
     const venue = conference.venue
 
     // Infer eventStatus for JSON-LD from conferenceState.conferenceState
-    let eventStatus = 'https://schema.org/EventScheduled'
+    let eventStatus: string
     switch (conferenceState.conferenceState) {
         case 'before-conference':
         case 'week-before-conference':

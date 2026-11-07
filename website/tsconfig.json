@@ -34,7 +34,6 @@
         },
         "noEmit": true,
         "rootDirs": [".", "./.react-router/types"],
-        "noUncheckedSideEffectImports": false,
-        "ignoreDeprecations": "6.0"
+        "noUncheckedSideEffectImports": false
     }
 }
