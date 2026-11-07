@@ -23,7 +23,7 @@
         "@nx/eslint-plugin": "24.0.4",
         "@nx/js": "24.0.4",
         "@pandacss/dev": "^1.12.2",
-        "@playwright/test": "^1.64.1",
+        "@playwright/test": "1.62.1",
         "@types/node": "^25.9.9",
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
