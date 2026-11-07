@@ -1,4 +1,3 @@
-import { rehypeCodeBlocksShiki } from '@kentcdodds/md-temp'
 import { compile } from '@mdx-js/mdx'
 import remarkEmbedder, { type Transformer, type TransformerInfo } from '@remark-embedder/core'
 import oembedTransformer from '@remark-embedder/transformer-oembed'
@@ -148,7 +147,7 @@ const remarkPlugins: U.PluggableList = [
     ],
 ]
 
-const rehypePlugins: U.PluggableList = [removeDoublePInDetails, trimCodeBlocks, rehypeCodeBlocksShiki, removePreContainerDivs]
+const rehypePlugins: U.PluggableList = [removeDoublePInDetails, trimCodeBlocks, removePreContainerDivs]
 
 const queue = new PQueue({ concurrency: 1, timeout: 1000 * 30 })
 
