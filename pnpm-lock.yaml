@@ -165,19 +165,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@pandacss/preset-panda':
-        specifier: ^1.11.1
-        version: 1.11.1
-      '@react-router/dev':
-        specifier: ^8.0.1
-        version: 8.3.1(babel-plugin-macros@3.1.0)(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(typescript@6.0.3)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1)
-      '@svgr/plugin-jsx':
-        specifier: ^8.1.0
-        version: 8.1.0(@svgr/core@8.1.0(supports-color@10.2.2)(typescript@6.0.3))(supports-color@10.2.2)
-      '@svgr/plugin-svgo':
-        specifier: ^8.1.0
-        version: 8.1.0(@svgr/core@8.1.0(supports-color@10.2.2)(typescript@6.0.3))(typescript@6.0.3)
     devDependencies:
       '@eslint-react/eslint-plugin':
         specifier: 5.28.8
@@ -264,27 +251,6 @@ importers:
       '@ddd/conference-config':
         specifier: workspace:*
         version: link:../libs/conference-config
-      '@kentcdodds/md-temp':
-        specifier: ^10.0.1
-        version: 10.0.1
-      '@mdx-js/mdx':
-        specifier: ^3.1.1
-        version: 3.1.1(supports-color@10.2.2)
-      '@react-router/fs-routes':
-        specifier: ^8.3.0
-        version: 8.3.1(@react-router/dev@8.3.1(babel-plugin-macros@3.1.0)(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(typescript@6.0.3)(vite@8.2.2(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1))(typescript@6.0.3)
-      '@remark-embedder/core':
-        specifier: ^3.0.3
-        version: 3.0.3
-      '@remark-embedder/transformer-oembed':
-        specifier: ^5.0.1
-        version: 5.0.1(@remark-embedder/core@3.0.3)
-      '@types/hast':
-        specifier: ^3.0.5
-        version: 3.0.5
-      '@types/mdx':
-        specifier: ^2.0.14
-        version: 2.0.14
       feed:
         specifier: ^5.2.1
         version: 5.2.1
@@ -300,15 +266,6 @@ importers:
       lru-cache:
         specifier: ^11.5.2
         version: 11.5.2
-      mdast-util-mdx-jsx:
-        specifier: ^3.2.0
-        version: 3.2.0(supports-color@10.2.2)
-      p-queue:
-        specifier: ^9.3.3
-        version: 9.3.3
-      pandacss-preset-typography:
-        specifier: ^0.1.6
-        version: 0.1.6(@pandacss/dev@1.11.1(jsdom@29.1.1)(supports-color@10.2.2)(typescript@6.0.3))(tsx@4.22.3)(yaml@2.9.0)
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -318,30 +275,9 @@ importers:
       react-router:
         specifier: ^8.3.0
         version: 8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      rehype-autolink-headings:
-        specifier: ^7.1.0
-        version: 7.1.0
-      rehype-slug:
-        specifier: ^6.0.0
-        version: 6.0.0
-      remark-frontmatter:
-        specifier: ^5.0.0
-        version: 5.0.0(supports-color@10.2.2)
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1(supports-color@10.2.2)
       resend:
         specifier: ^6.18.1
         version: 6.25.0
-      unified:
-        specifier: ^11.0.5
-        version: 11.0.5
-      unist-util-visit:
-        specifier: ^5.1.0
-        version: 5.1.0
-      vfile:
-        specifier: ^6.0.3
-        version: 6.0.3
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -355,24 +291,87 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: ^1.51.0
         version: 1.54.2(vite@8.2.2(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1)
+      '@kentcdodds/md-temp':
+        specifier: ^10.0.1
+        version: 10.0.1
+      '@mdx-js/mdx':
+        specifier: ^3.1.1
+        version: 3.1.1(supports-color@10.2.2)
+      '@pandacss/preset-panda':
+        specifier: ^1.11.1
+        version: 1.11.1
       '@playwright/test':
         specifier: ^1.62.1
         version: 1.62.1
+      '@react-router/dev':
+        specifier: ^8.0.1
+        version: 8.3.1(babel-plugin-macros@3.1.0)(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(typescript@6.0.3)(vite@8.2.2(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1)
+      '@react-router/fs-routes':
+        specifier: ^8.3.0
+        version: 8.3.1(@react-router/dev@8.3.1(babel-plugin-macros@3.1.0)(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(typescript@6.0.3)(vite@8.2.2(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1))(typescript@6.0.3)
+      '@remark-embedder/core':
+        specifier: ^3.0.3
+        version: 3.0.3
+      '@remark-embedder/transformer-oembed':
+        specifier: ^5.0.1
+        version: 5.0.1(@remark-embedder/core@3.0.3)
+      '@svgr/plugin-jsx':
+        specifier: ^8.1.0
+        version: 8.1.0(@svgr/core@8.1.0(supports-color@10.2.2)(typescript@6.0.3))(supports-color@10.2.2)
+      '@svgr/plugin-svgo':
+        specifier: ^8.1.0
+        version: 8.1.0(@svgr/core@8.1.0(supports-color@10.2.2)(typescript@6.0.3))(typescript@6.0.3)
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/hast':
+        specifier: ^3.0.5
+        version: 3.0.5
+      '@types/mdx':
+        specifier: ^2.0.14
+        version: 2.0.14
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
       jsonc-eslint-parser:
         specifier: 2.4.0
         version: 2.4.0
+      mdast-util-mdx-jsx:
+        specifier: ^3.2.0
+        version: 3.2.0(supports-color@10.2.2)
+      p-queue:
+        specifier: ^9.3.3
+        version: 9.3.3
+      pandacss-preset-typography:
+        specifier: ^0.1.6
+        version: 0.1.6(@pandacss/dev@1.11.1(jsdom@29.1.1)(supports-color@10.2.2)(typescript@6.0.3))(tsx@4.22.3)(yaml@2.9.0)
       read-excel-file:
         specifier: ^9.3.14
         version: 9.3.14
+      rehype-autolink-headings:
+        specifier: ^7.1.0
+        version: 7.1.0
+      rehype-slug:
+        specifier: ^6.0.0
+        version: 6.0.0
+      remark-frontmatter:
+        specifier: ^5.0.0
+        version: 5.0.0(supports-color@10.2.2)
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1(supports-color@10.2.2)
+      unified:
+        specifier: ^11.0.5
+        version: 11.0.5
+      unist-util-visit:
+        specifier: ^5.1.0
+        version: 5.1.0
+      vfile:
+        specifier: ^6.0.3
+        version: 6.0.3
       vite:
         specifier: ^8.2.0
         version: 8.2.2(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0)
@@ -8534,40 +8533,6 @@ snapshots:
       supports-color: 10.2.2
 
   '@poppinss/exception@1.2.3': {}
-
-  '@react-router/dev@8.3.1(babel-plugin-macros@3.1.0)(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(typescript@6.0.3)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1)':
-    dependencies:
-      '@babel/core': 7.29.7(supports-color@10.2.2)
-      '@babel/generator': 7.29.8
-      '@babel/parser': 7.29.8
-      '@babel/traverse': 7.29.8(supports-color@10.2.2)
-      '@babel/types': 7.29.8
-      '@react-router/node': 8.3.1(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(typescript@6.0.3)
-      '@remix-run/node-fetch-server': 0.14.1
-      babel-dead-code-elimination: 1.0.12(supports-color@10.2.2)
-      chokidar: 5.0.0
-      dedent: 1.7.2(babel-plugin-macros@3.1.0)
-      es-module-lexer: 2.3.2
-      exit-hook: 5.1.0
-      isbot: 5.2.2
-      jsesc: 3.1.0
-      lodash: 4.18.1
-      p-map: 7.0.4
-      pathe: 2.0.3
-      picocolors: 1.1.1
-      pkg-types: 2.3.1
-      react-refresh: 0.18.0
-      react-router: 8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      semver: 7.8.5
-      tinyglobby: 0.2.17
-      valibot: 1.4.1(typescript@6.0.3)
-      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0)
-    optionalDependencies:
-      typescript: 6.0.3
-      wrangler: 4.127.1
-    transitivePeerDependencies:
-      - babel-plugin-macros
-      - supports-color
 
   '@react-router/dev@8.3.1(babel-plugin-macros@3.1.0)(react-router@8.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(typescript@6.0.3)(vite@8.2.2(@types/node@25.9.1)(esbuild@0.28.1)(jiti@1.21.7)(tsx@4.22.3)(yaml@2.9.0))(wrangler@4.127.1)':
     dependencies:
