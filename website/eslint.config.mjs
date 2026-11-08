@@ -1,7 +1,7 @@
 import { configs } from '@nx/eslint-plugin'
 import eslintReact from '@eslint-react/eslint-plugin'
 import jsxA11y from 'eslint-plugin-jsx-a11y-x'
-import jsonParser from 'jsonc-eslint-parser'
+import * as jsonParser from 'jsonc-eslint-parser'
 import ts from 'typescript-eslint'
 import baseConfig from '../eslint.config.mjs'
 import dateRules from '../eslint-rules/date-time.mjs'
