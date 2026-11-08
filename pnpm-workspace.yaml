@@ -16,7 +16,7 @@ autoInstallPeers: true
 # fixes. Override per-install with `--minimum-release-age=0`, or exclude
 # specific packages via `minimumReleaseAgeExclude` if a vetted dep blocks a
 # CI bump.
-minimumReleaseAge: 0
+minimumReleaseAge: 4320
 
 # pnpm 11 refuses to run dependency build scripts unless they're listed here,
 # and errors on install until every entry is an explicit boolean. These are the

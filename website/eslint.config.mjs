@@ -25,7 +25,6 @@ export default [
             'eslint.config.cjs',
             'vite.config.js',
             'mocks/index.js',
-            'safe-routes.d.ts',
             'postcss.config.cjs',
             'app/styled-system',
             'scripts/**',
@@ -90,16 +89,18 @@ export default [
                     ignoredFiles: [
                         '{projectRoot}/eslint.config.{js,cjs,mjs}',
                         '{projectRoot}/vite.config.{js,ts,mjs,mts}',
+                        // Build-time only: the MDX compiler plugin and the route config
+                        // run inside Vite, so their imports are devDependencies.
+                        '{projectRoot}/vite-plugins/**',
+                        '{projectRoot}/app/routes.ts',
                     ],
                     ignoredDependencies: [
                         'vite',
                         '@react-router/dev',
                         '@pandacss/dev',
-                        '@park-ui/panda-preset',
-                        'pandacss-preset-typography',
-                        'lru-cache',
-                        'msw',
+                        '@types/mdx', // `mdx/types` is a type-only import; nothing ships at runtime.
                         'vitest',
+                        'read-excel-file', // Independent XLSX reader for tests only; keep out of production dependencies.
                         'eslint', // RuleTester is development tooling, declared at the workspace root.
                         'typescript-eslint', // Parser for typed date-rule regression tests, declared at the workspace root.
                         '@testing-library/react',

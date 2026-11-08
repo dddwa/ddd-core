@@ -1,5 +1,4 @@
 import { defineConfig, defineRecipe } from '@pandacss/dev'
-import typographyPreset from 'pandacss-preset-typography'
 import { indigo } from './app/theme/colors/indigo'
 import { slate } from './app/theme/colors/slate'
 import { keyframes as parkKeyframes } from './app/theme/keyframes'
@@ -156,7 +155,7 @@ export default defineConfig({
     // values within sub-rem precision so nothing visual shifts. Park UI 1.0's
     // theme files (under app/theme/*) layer color + radius semantic tokens
     // on top, plus the spinner-specific `spin` animation reintroduced below.
-    presets: [typographyPreset(), '@pandacss/preset-panda'],
+    presets: ['@pandacss/preset-panda'],
 
     jsxFramework: 'react',
 
