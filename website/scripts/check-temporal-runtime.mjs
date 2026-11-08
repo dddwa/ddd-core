@@ -122,9 +122,16 @@ try {
     console.log('Node native and forced polyfill agree')
 
     const worker = new Miniflare({
-        compatibilityDate: '2026-06-24', modulesRoot: directory,
-        modules: ['/worker.mjs', ...[...files.keys()].filter((file) => file !== '/worker.mjs')]
-            .map((file) => ({ type: 'ESModule', path: path.join(directory, file), contents: files.get(file) })),
+        workers: [{
+            config: {
+                name: 'temporal-probe',
+                compatibilityDate: '2026-06-24',
+                manifest: {
+                    mainModule: 'worker.mjs',
+                    modules: Object.fromEntries([...files].map(([file, contents]) => [file.slice(1), { type: 'esm', contents }])),
+                },
+            },
+        }],
     })
     try {
         const response = await worker.dispatchFetch('http://localhost/')

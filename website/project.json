@@ -9,14 +9,14 @@
             "executor": "nx:run-commands",
             "options": {
                 "command": "pnpm exec playwright install chromium firefox webkit",
-                "cwd": "core/website"
+                "cwd": "website"
             }
         },
         "temporal-check": {
             "executor": "nx:run-commands",
             "options": {
                 "command": "node scripts/check-temporal-runtime.mjs",
-                "cwd": "core/website"
+                "cwd": "website"
             }
         },
         "lint": {
