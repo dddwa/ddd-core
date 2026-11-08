@@ -230,7 +230,7 @@ function RegistrationShare({ sharecastUrl, registration }: { sharecastUrl: strin
                 </styled.fieldset>
             )}
 
-            {tickets.length > 1 && <Divider color="#8D8DFF33" my="6" />}
+            {tickets.length > 1 && <Divider color="border.subtle" my="6" />}
 
             <ShareFrame sharecastUrl={sharecastUrl} userName={userName} />
         </ShareContainer>

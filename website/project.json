@@ -53,7 +53,7 @@
             "// parallelism": "All three setup targets generate into website/, and `react-router typegen` clears and rewrites .react-router/types/ as it goes. Run concurrently (which `setup` did, having no ordering in its dependsOn) that rmdir races another generator repopulating the tree, and CI dies with ENOTEMPTY before the suite runs a single test. It hit three PRs in a row, each passing on a plain re-run, which is exactly what a race looks like.",
             "parallelism": false,
             "options": {
-                "command": "pnpm panda setup",
+                "command": "pnpm panda",
                 "cwd": "website"
             }
         },

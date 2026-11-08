@@ -22,7 +22,10 @@ minimumReleaseAge: 4320
 # and errors on install until every entry is an explicit boolean. These are the
 # build-time toolchain packages (native binaries and codegen) that genuinely
 # need their install scripts; without them `nx`, `vite` and `workerd` don't run.
+# @parcel/watcher (via @pandacss/dev) ships prebuilt binaries as optional deps;
+# its install script only compiles from source when none matches, so it's off.
 allowBuilds:
+    '@parcel/watcher': false
     '@swc/core': true
     esbuild: true
     msw: true

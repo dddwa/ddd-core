@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Flex, styled } from '~/styled-system/jsx'
-import type { SizeToken } from '~/styled-system/tokens'
+import type { SizeToken } from '~/styled-system/types/tokens'
 
 /**
  * Checkbox-dropdown filter used across the agenda table.

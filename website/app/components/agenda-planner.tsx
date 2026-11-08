@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Button } from '~/components/ui/button'
 import type { PlannerBoard } from '~/lib/agenda-planning-types'
 import { Box, Flex, styled } from '~/styled-system/jsx'
-import type { ColorToken } from '~/styled-system/tokens'
+import type { ColorToken } from '~/styled-system/types/tokens'
 
 /**
  * Trello-style board for laying talks into the agenda grid.
