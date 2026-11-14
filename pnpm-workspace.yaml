@@ -32,10 +32,3 @@ allowBuilds:
     nx: true
     sharp: true
     workerd: true
-
-overrides:
-    # @svgr/plugin-svgo 8.1.0 (the latest, from 2023) declares deepmerge but its
-    # published dist never imports it. deepmerge has an unpatched prototype-
-    # poisoning advisory (GHSA-gcqx-w48m-w2h4), so it's removed rather than
-    # carried as dead weight that keeps `pnpm audit` noisy.
-    '@svgr/plugin-svgo>deepmerge': '-'
