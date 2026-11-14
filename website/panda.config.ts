@@ -155,7 +155,8 @@ export default defineConfig({
     // values within sub-rem precision so nothing visual shifts. Park UI 1.0's
     // theme files (under app/theme/*) layer color + radius semantic tokens
     // on top, plus the spinner-specific `spin` animation reintroduced below.
-    presets: ['@pandacss/preset-panda'],
+    // Panda 2 stopped adding preset-base implicitly, so it's listed first.
+    presets: ['@pandacss/preset-base', '@pandacss/preset-panda'],
 
     jsxFramework: 'react',
 

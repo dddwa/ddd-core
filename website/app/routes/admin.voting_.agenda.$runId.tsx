@@ -16,7 +16,7 @@ import { getConfSessions, getConfSpeakers, getSpeakerUnderrepresentedGroup } fro
 import { useQueuedSave } from '~/lib/use-queued-save'
 import { getConferenceState, getConfig, getServices } from '~/remix-app-load-context'
 import { Box, Flex, styled } from '~/styled-system/jsx'
-import type { ColorToken, SizeToken } from '~/styled-system/tokens'
+import type { ColorToken, SizeToken } from '~/styled-system/types/tokens'
 import type { Route } from './+types/admin.voting_.agenda.$runId'
 
 const SESSION_FORMAT_CATEGORY = 'Session format'
