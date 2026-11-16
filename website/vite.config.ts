@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import svgr from 'vite-plugin-svgr'
 import { defineConfig } from 'vite'
+import { optimize } from 'svgo'
 import { conferenceBrandPlugin } from './vite-plugins/conference-brand.ts'
 import { conferencePublicPlugin } from './vite-plugins/conference-public.ts'
 import { mdxBundlesPlugin } from './vite-plugins/mdx-bundles.ts'
@@ -167,10 +168,17 @@ export default defineConfig({
         conferenceBrandPlugin(conferenceBuildManifest.brandAssets),
         svgr({
             svgrOptions: {
-                plugins: ['@svgr/plugin-svgo', '@svgr/plugin-jsx'],
-                svgoConfig: {
-                    plugins: [{ name: 'prefixIds', params: { prefixIds: true } }],
-                },
+                // Only prefixIds is wanted (so two inlined copies of a mark don't share
+                // gradient ids), so svgo is called directly rather than through
+                // @svgr/plugin-svgo, which pins svgo 3 and drags in cosmiconfig.
+                plugins: [
+                    (code: string, _config: unknown, state: { filePath?: string }) =>
+                        optimize(code, {
+                            path: state.filePath,
+                            plugins: [{ name: 'prefixIds', params: { prefixIds: true } }],
+                        }).data,
+                    '@svgr/plugin-jsx',
+                ],
             },
         }),
     ],
